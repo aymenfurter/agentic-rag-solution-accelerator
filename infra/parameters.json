@@ -1,0 +1,32 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "workloadName": {
+        "value": "agentic-rag"
+      },
+      "location": {
+        "value": "westus"
+      },
+      "tags": {
+        "value": {
+          "environment": "production",
+          "project": "agentic-rag",
+          "owner": "enterprise-ai",
+          "costCenter": "123456"
+        }
+      },
+      "publicNetworkAccess": {
+        "value": "Enabled"
+      },
+      "authMode": {
+        "value": "rbac"
+      },
+      "modelCapacity": {
+        "value": 10
+      },
+      "modelVersion": {
+        "value": "2024-05-13"
+      }
+    }
+   }

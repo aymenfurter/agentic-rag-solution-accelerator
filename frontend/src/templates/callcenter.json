@@ -1,0 +1,27 @@
+{
+  "name": "Call Center",
+  "description": "Template for analyzing call center conversations",
+  "fields": [
+    {
+      "name": "sentiment",
+      "type": "string",
+      "description": "Overall sentiment of the call (positive, neutral, negative)"
+    },
+    {
+      "name": "category",
+      "type": "string",
+      "description": "Category of the customer inquiry"
+    },
+    {
+      "name": "actionItems",
+      "type": "array",
+      "description": "List of action items from the call"
+    },
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Name of the customer"
+    }
+  ],
+  "instructions": "You are a helpful assistant for analyzing call center transcripts. Pay attention to customer sentiment and action items."
+}

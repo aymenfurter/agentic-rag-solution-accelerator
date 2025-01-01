@@ -1,0 +1,4 @@
+black==23.12.1
+flake8==7.0.0
+pytest==7.4.4
+pytest-asyncio==0.23.4

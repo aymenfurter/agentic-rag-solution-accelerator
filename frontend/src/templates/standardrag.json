@@ -1,0 +1,27 @@
+{
+  "name": "Standard RAG",
+  "description": "Basic template for document analysis",
+  "fields": [
+    {
+      "name": "keywords",
+      "type": "array",
+      "description": "Key topics or terms from the document"
+    },
+    {
+      "name": "author",
+      "type": "string",
+      "description": "Document author"
+    },
+    {
+      "name": "createdDate",
+      "type": "date",
+      "description": "Document creation date"
+    },
+    {
+      "name": "language",
+      "type": "string",
+      "description": "Document language"
+    }
+  ],
+  "instructions": "You are a helpful assistant for analyzing documents and providing relevant information based on user queries."
+}

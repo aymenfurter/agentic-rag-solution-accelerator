@@ -1,0 +1,50 @@
+# .gitignore
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Azure Functions
+local.settings.json
+.python_packages
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.venv
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build
+/frontend/build/
+/frontend/dist/
+
+# Misc
+.DS_Store
+Thumbs.db
