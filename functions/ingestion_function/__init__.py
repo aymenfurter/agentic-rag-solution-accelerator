@@ -3,8 +3,8 @@ import logging
 import json
 import os
 from azure.storage.blob import BlobServiceClient
-from shared.chunking.markdown_chunker import MarkdownChunker
-from shared.chunking.audio_chunker import AudioTranscriptChunker
+from .markdown_chunker import MarkdownChunker
+from .audio_chunker import AudioTranscriptChunker
 from ingestion_function.content_understanding_utils import analyze_file
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
@@ -35,14 +35,35 @@ def main(myblob: func.InputStream):
         analyze_result = analyze_file(analyzer_id, content)
 
         # Create metadata for chunks
+        original_filename = "_".join(blob_name.split("_")[1:])  # Original filename
         metadata = {
-            "artifactId": file_id,
-            "fileName": "_".join(blob_name.split("_")[1:]),  # Original filename
+            "fileName": original_filename,
             **analyze_result.get("metadata", {})
         }
 
-        # Choose appropriate chunker based on file type
+        # Create artifact document
+        artifact_doc = {
+            "id": file_id,
+            "docType": "artifact",
+            **metadata,
+            **{k: v for k, v in analyze_result.get("metadata", {}).items() 
+               if k in [f["name"] for f in schema_json.get("fields", [])]}
+        }
+
+        # Create chunk documents with parent reference
         chunks = []
+        for idx, chunk in enumerate(analyze_result.get("chunks", [])):
+            chunk_doc = {
+                "chunk_id": f"{file_id}_chunk_{idx}",
+                "chunk_content": chunk["content"],
+                "chunk_docType": "chunk",
+                "chunk_fileName": original_filename,  # This is the correct field for linking
+                "chunkNumber": idx,
+                **{f"chunk_{k}": v for k, v in metadata.items()}
+            }
+            chunks.append(chunk_doc)
+
+        # Choose appropriate chunker based on file type
         if file_type in ['md', 'markdown']:
             chunker = MarkdownChunker()
             chunks = chunker.create_chunks(content.decode('utf-8'), metadata)
@@ -67,21 +88,26 @@ def main(myblob: func.InputStream):
             }
             chunks.append(summary_doc)
 
-        # Get Azure AI Search client
+        # Get search clients for both indexes with static names
         search_endpoint = os.environ["SEARCH_ENDPOINT"]
         search_key = os.environ["SEARCH_ADMIN_KEY"]
-        index_name = os.environ["SEARCH_INDEX_NAME"]
         
-        search_client = SearchClient(
+        artifact_client = SearchClient(
             endpoint=search_endpoint,
-            index_name=index_name,
+            index_name="artifacts",
+            credential=AzureKeyCredential(search_key)
+        )
+        
+        chunk_client = SearchClient(
+            endpoint=search_endpoint,
+            index_name="chunks",
             credential=AzureKeyCredential(search_key)
         )
 
-        # Upload chunks to search index
+        # Upload to respective indexes
+        artifact_client.upload_documents(documents=[artifact_doc])
         if chunks:
-            result = search_client.upload_documents(documents=chunks)
-            logging.info(f"Uploaded {len(result)} chunks to search index")
+            chunk_client.upload_documents(documents=chunks)
         
         return
 

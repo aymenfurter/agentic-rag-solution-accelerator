@@ -6,6 +6,7 @@ import logging
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import QueryType
+from azure.storage.blob import BlobServiceClient
 
 def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
     logging.info('Python queue trigger function processed a queue item')
@@ -22,18 +23,29 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
         semantic_ranking = payload.get("semanticRanking", False)
         top_k = min(payload.get("topK", 5), 50)
         
+        # Get config to find index name
+        blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
+        container_client = blob_client.get_container_client("schemas")
+        config_blob = container_client.get_blob_client("user_config.json")
+        schema_json = json.loads(config_blob.download_blob().readall())
+        
         # Initialize search client
         search_client = SearchClient(
             endpoint=os.environ["SEARCH_ENDPOINT"],
-            index_name=os.environ["SEARCH_INDEX_NAME"],
+            index_name="artifacts",  # Use static name
             credential=AzureKeyCredential(os.environ["SEARCH_ADMIN_KEY"])
         )
         
-        # Build search options
+        # Build dynamic field selection from config
+        standard_fields = ["id", "content", "docType", "timestamp", "fileName"]
+        custom_fields = [f["name"] for f in schema_json.get("fields", [])]
+        all_fields = standard_fields + custom_fields
+        
+        # Build search options with dynamic field selection
         search_options = {
             "filter": f"docType eq 'artifact' {f'and {filter_expr}' if filter_expr else ''}",
             "top": top_k,
-            "select": "id,timestamp,summary,artifactId,fileName",
+            "select": ",".join(all_fields),
             "include_total_count": True
         }
         
@@ -41,7 +53,7 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
             search_options.update({
                 "query_type": QueryType.SEMANTIC,
                 "query_language": "en-us",
-                "semantic_configuration_name": "default"
+                "semantic_configuration_name": "artifact-semantic"
             })
             
         # Perform search
@@ -50,17 +62,16 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
             **search_options
         )
         
-        # Format results
+        # Format results with dynamic fields
         docs = []
         for result in results:
-            docs.append({
-                "id": result["id"],
-                "timestamp": result.get("timestamp"),
-                "summary": result.get("summary"),
-                "artifactId": result.get("artifactId"),
-                "fileName": result.get("fileName"),
-                "score": result.get("@search.score")
-            })
+            doc = {
+                field: result.get(field) 
+                for field in all_fields 
+                if field in result
+            }
+            doc["score"] = result.get("@search.score")
+            docs.append(doc)
         
         # Send results to output queue
         output_message = {

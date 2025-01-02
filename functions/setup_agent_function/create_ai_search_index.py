@@ -106,42 +106,39 @@ def create_search_indexes(fields_config=None):
         ]
     )
 
-    # Create separate semantic configs for artifacts and chunks with correct field names
+    # Update semantic configurations to use correct field names
     artifact_semantic_config = SemanticConfiguration(
-        name="artifact-semantic",
+        name="default",
         prioritized_fields=SemanticPrioritizedFields(
-            title_field=None,
-            keywords_fields=[],
-            content_fields=[
-                SemanticField(field_name="content")  # Field name in artifacts index
-            ]
+            content_fields=[SemanticField(field_name="fileName")],
+            keywords_fields=[SemanticField(field_name="fileName")]
         )
     )
 
     chunk_semantic_config = SemanticConfiguration(
-        name="chunk-semantic",
+        name="default",
         prioritized_fields=SemanticPrioritizedFields(
-            title_field=None,
-            keywords_fields=[],
-            content_fields=[
-                SemanticField(field_name="chunk_content")  # Field name in chunks index
-            ]
+            content_fields=[SemanticField(field_name="chunk_content")],
+            keywords_fields=[SemanticField(field_name="chunk_fileName")]
         )
     )
+
+    semantic_search_artifact = SemanticSearch(configurations=[artifact_semantic_config])
+    semantic_search_chunk = SemanticSearch(configurations=[chunk_semantic_config])
 
     # Create both indexes with their respective semantic configurations
     artifact_index = SearchIndex(
         name="artifacts",
         fields=artifact_fields,
         vector_search=vector_search,
-        semantic_search=SemanticSearch(configurations=[artifact_semantic_config])
+        semantic_search=semantic_search_artifact
     )
 
     chunk_index = SearchIndex(
         name="chunks",
         fields=chunk_fields,
         vector_search=vector_search,
-        semantic_search=SemanticSearch(configurations=[chunk_semantic_config])
+        semantic_search=semantic_search_chunk
     )
 
     try:

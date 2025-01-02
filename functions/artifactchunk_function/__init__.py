@@ -5,6 +5,7 @@ import azure.functions as func
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import QueryType
+from azure.storage.blob import BlobServiceClient
 
 def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
     logging.info('Python queue trigger function processed a queue item')
@@ -22,18 +23,24 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
         question_rewriting = payload.get("questionRewriting", False)
         top_k = min(payload.get("topK", 5), 50)
         
-        # Initialize search client
+        # Get config to find index name
+        blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
+        container_client = blob_client.get_container_client("schemas")
+        config_blob = container_client.get_blob_client("user_config.json")
+        schema_json = json.loads(config_blob.download_blob().readall())
+        
+        # Initialize search client with static index name
         search_client = SearchClient(
             endpoint=os.environ["SEARCH_ENDPOINT"],
-            index_name=os.environ["SEARCH_INDEX_NAME"],
+            index_name="chunks",
             credential=AzureKeyCredential(os.environ["SEARCH_ADMIN_KEY"])
         )
         
-        # Build search options
+        # Build search options with chunk-specific fields
         search_options = {
-            "filter": f"docType eq 'chunk' {f'and {filter_expr}' if filter_expr else ''}",
+            "filter": f"chunk_docType eq 'chunk' {f'and {filter_expr}' if filter_expr else ''}",
             "top": top_k,
-            "select": "id,content,timestamp,artifactId,fileName,segmentTimestamp,headers",
+            "select": "chunk_id,chunk_content,chunk_timestamp,chunk_fileName",
             "include_total_count": True
         }
         
@@ -41,7 +48,7 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
             search_options.update({
                 "query_type": QueryType.SEMANTIC,
                 "query_language": "en-us",
-                "semantic_configuration_name": "default"
+                "semantic_configuration_name": "chunk-semantic"
             })
 
         if question_rewriting:
@@ -58,11 +65,10 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
         docs = []
         for result in results:
             doc = {
-                "id": result["id"],
-                "content": result.get("content"),
-                "timestamp": result.get("timestamp"),
-                "artifactId": result.get("artifactId"),
-                "fileName": result.get("fileName"),
+                "id": result["chunk_id"],
+                "content": result.get("chunk_content"),
+                "timestamp": result.get("chunk_timestamp"),
+                "fileName": result.get("chunk_fileName"),  # Use consistent field name
                 "score": result.get("@search.score")
             }
             
@@ -89,5 +95,5 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
         error_message = {
             "error": str(e),
             "CorrelationId": correlation_id
-        }
+        }        
         outputQueueItem.set(json.dumps(error_message))

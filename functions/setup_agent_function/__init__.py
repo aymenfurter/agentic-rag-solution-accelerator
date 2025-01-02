@@ -6,6 +6,7 @@ from .agent_service_utils import create_or_update_agent
 from .content_understanding_utils import create_or_update_analyzer
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from azure.core.exceptions import ResourceExistsError
+from .create_ai_search_index import create_search_indexes
 
 def get_or_create_container(conn_str: str, container_name: str) -> ContainerClient:
     blob_client = BlobServiceClient.from_connection_string(conn_str)
@@ -52,6 +53,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             "template": body.get("template")
         }
         
+        # Create search indexes first
+        try:
+            create_search_indexes(schema_data["fields"])
+            logging.info("Created search indexes")
+        except Exception as e:
+            logging.error(f"Error creating search indexes: {str(e)}")
+            return func.HttpResponse(
+                "Error creating search indexes",
+                status_code=500
+            )
+
         # Store config in blob storage
         try:
             container = get_or_create_container(
@@ -94,7 +106,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             json.dumps({
                 "status": "success",
                 "analyzerId": analyzer_result.get("analyzerId"),
-                "agentId": agent_result.get("id")
+                "agentId": agent_result.get("id"),
             }),
             status_code=200,
             mimetype="application/json"

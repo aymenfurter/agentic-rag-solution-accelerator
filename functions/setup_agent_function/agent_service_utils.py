@@ -66,9 +66,10 @@ Available fields for searching and filtering (Artifact-level):
 You can create filters using OData syntax. Examples:
 {chr(10).join(filter_examples)}
 
-You can filter by individual artifact chunk (i.e. search in context of a single document) by using the 'ArtifactChunk' tool and applying the filter: 'parentArtifactId eq 'artifactId'.
+You can filter by individual document chunks by using the 'ArtifactChunk' tool and applying the filter: chunk_fileName eq 'original_filename.pdf'.
 
-When searching documents, construct relevant filters based on the user's request.
+Use the Artifact tool for high-level document searches and metadata queries.
+Use the ArtifactChunk tool for searching within specific documents or when you need detailed content analysis
 """
 
         # Create function tools
