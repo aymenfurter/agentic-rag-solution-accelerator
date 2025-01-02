@@ -72,8 +72,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         # Create/update analyzer and agent
-        analyzer_result = create_or_update_analyzer(schema_data)
-        agent_result = create_or_update_agent(schema_data)
+        try:
+            analyzer_result = create_or_update_analyzer(schema_data)
+            agent_result = create_or_update_agent(schema_data)
+        except Exception as e:
+            import requests
+            if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 409:
+                # Return success even if analyzer already exists
+                return func.HttpResponse(
+                    json.dumps({
+                        "status": "success",
+                        "message": "Using existing analyzer",
+                        "analyzerId": schema_data["name"]
+                    }),
+                    status_code=200,
+                    mimetype="application/json"
+                )
+            raise
 
         return func.HttpResponse(
             json.dumps({
@@ -86,6 +101,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
+        import traceback
+        logging.error(traceback.format_exc())
         logging.error(f"Error in setup_agent: {str(e)}")
         return func.HttpResponse(
             str(e),

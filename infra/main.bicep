@@ -1,61 +1,95 @@
-// /infra/main.bicep
-
+// Core Parameters
 @minLength(1)
 @maxLength(64)
 @description('Name of the workload which is used to generate a short unique hash used in all resources.')
 param workloadName string
 
-@description('Primary location for all resources.')
-@allowed([
-  'westus'
-])
-param location string = 'westus'
+// Region Parameters
+@description('Primary region for AI and core services')
+@allowed(['eastus'])
+param primaryRegion string = 'eastus'
 
-@description('Resource for static web app')
-@allowed([
-  'westus2'
-  'eastus2'
-  'southcentralus'
-  'eastasia'
-])
-param staticWebAppLocation string = 'westus2'
+@description('Region for web hosting and static content')
+@allowed(['westus2'])
+param webHostingRegion string = 'westus2'
 
-@description('Tags to add to the resources.')
-param tags object = {}
+@description('Region for content understanding services')
+@allowed(['australiaeast'])
+param contentUnderstandingRegion string = 'australiaeast'
 
-@description('Public network access')
+@description('Region for content understanding services')
+@allowed(['westus2'])
+param functionHostingRegion string = 'westus2'
+
+// Network and Security Parameters
+@description('Public network access configuration')
 @allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Enabled'
 
-@description('Authentication mode: accessKey or rbac')
-@allowed(['accessKey', 'rbac'])
-param authMode string = 'rbac'
-
+// AI Service Parameters
 @description('GPT-4 model deployment capacity')
 @minValue(1)
 @maxValue(100)
-param modelCapacity int = 10
+param gpt4ModelCapacity int = 10
 
-@description('Model version')
-param modelVersion string = '2024-05-13'
+@description('GPT-4 model version')
+param gpt4ModelVersion string = '2024-05-13'
 
-// Generate unique suffix
+@description('AI Service Account type')
+@allowed(['OpenAI', 'AIServices'])
+param aiServiceType string = 'AIServices'
+
+// AI Hub Parameters
+@description('AI hub configuration')
+param aiHubConfig object = {
+  displayName: 'AI Hub for ${workloadName}'
+  description: 'AI Hub for ${workloadName}'
+}
+
+// AI Project Parameters
+@description('AI Project configuration')
+param aiProjectConfig object = {
+  displayName: 'AI Project for ${workloadName}'
+  description: 'AI Project for document processing'
+}
+
+// Add tags parameter
+@description('Tags to add to the resources')
+param tags object
+
+// Resource name generation
 var resourceSuffix = uniqueString(resourceGroup().id, workloadName)
+var names = {
+  storage: 'st${resourceSuffix}'
+  search: 'srch-${resourceSuffix}'
+  aiAgent: 'ai-agent-${resourceSuffix}'
+  aiContentUnderstanding: 'ai-cu-${resourceSuffix}'
+  functionApp: 'func-${resourceSuffix}'
+  appServicePlan: 'asp-${resourceSuffix}'
+  staticWebApp: 'swa-${resourceSuffix}'
+  appInsights: 'appi-${resourceSuffix}'
+  logAnalytics: 'log-${resourceSuffix}'
+  aiProject: 'ai-proj-${resourceSuffix}'
+  aiHub: 'aihub-${resourceSuffix}'
+}
+var connections = {
+  aiSearch: '${names.aiHub}-conn-aisearch'
+  aiAgent: '${names.aiHub}-conn-aiagent'
+  aiContentUnderstanding: '${names.aiHub}-conn-aicu'
+  primary: aiServiceType == 'AIServices' ? '${names.aiHub}-conn-aiservices' : '${names.aiHub}-conn-aoai'
+}
 
-// Resource names
-var storageAccountName = 'st${resourceSuffix}'
-var searchServiceName = 'srch-${resourceSuffix}'
-var aiServicesName = 'ai-${resourceSuffix}'
-var functionAppName = 'func-${resourceSuffix}'
-var appServicePlanName = 'asp-${resourceSuffix}'
-var staticWebAppName = 'swa-${resourceSuffix}'
-var appInsightsName = 'appi-${resourceSuffix}'
-var logAnalyticsName = 'log-${resourceSuffix}'
+// Project connection string components
+var projectConnection = {
+  subscriptionId: subscription().subscriptionId
+  resourceGroup: resourceGroup().name
+  connectionString: '${primaryRegion}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${names.aiProject}'
+}
 
-// Storage for files and configuration
+// Storage Account
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageAccountName
-  location: location
+  name: names.storage
+  location: functionHostingRegion 
   tags: tags
   sku: {
     name: 'Standard_LRS'
@@ -94,8 +128,8 @@ resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01
 
 // Azure AI Search
 resource searchService 'Microsoft.Search/searchServices@2023-11-01' = {
-  name: searchServiceName
-  location: location
+  name: names.search
+  location: primaryRegion
   tags: tags
   sku: {
     name: 'standard'
@@ -114,17 +148,41 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' = {
   }
 }
 
-// Azure AI Services
-resource aiServices 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
-  name: aiServicesName
-  location: location
+// Azure AI Service - Content Understanding
+resource aiContentUnderstandingService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
+  name: names.aiContentUnderstanding
+  location: contentUnderstandingRegion
   tags: tags
   kind: 'AIServices'
   sku: {
     name: 'S0'
   }
   properties: {
-    customSubDomainName: aiServicesName
+    customSubDomainName: names.aiContentUnderstanding
+    networkAcls: {
+      defaultAction: publicNetworkAccess == 'Enabled' ? 'Allow' : 'Deny'
+    }
+    publicNetworkAccess: publicNetworkAccess
+    apiProperties: {
+      statisticsEnabled: false
+    }
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+}
+
+// Azure AI Services - Agent Service
+resource aiAgentService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
+  name: names.aiAgent
+  location: primaryRegion
+  tags: tags
+  kind: 'AIServices'
+  sku: {
+    name: 'S0'
+  }
+  properties: {
+    customSubDomainName: names.aiAgent
     networkAcls: {
       defaultAction: publicNetworkAccess == 'Enabled' ? 'Allow' : 'Deny'
     }
@@ -140,17 +198,17 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
 
 // GPT-4 Model Deployment
 resource gpt4Deployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
-  parent: aiServices
+  parent: aiAgentService
   name: 'gpt-4o'
   sku: {
     name: 'Standard'
-    capacity: modelCapacity
+    capacity: gpt4ModelCapacity
   }
   properties: {
     model: {
       format: 'OpenAI'
       name: 'gpt-4o'
-      version: modelVersion
+      version: gpt4ModelVersion
     }
     versionUpgradeOption: 'OnceCurrentVersionExpired'
     raiPolicyName: 'Default'
@@ -159,8 +217,8 @@ resource gpt4Deployment 'Microsoft.CognitiveServices/accounts/deployments@2023-0
 
 // Application Insights
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: logAnalyticsName
-  location: location
+  name: names.logAnalytics
+  location: primaryRegion
   tags: tags
   properties: {
     retentionInDays: 30
@@ -171,8 +229,8 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 }
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
-  location: location
+  name: names.appInsights
+  location: primaryRegion
   tags: tags
   kind: 'web'
   properties: {
@@ -185,8 +243,8 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 // Function App hosting
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
-  name: appServicePlanName
-  location: location
+  name: names.appServicePlan
+  location: functionHostingRegion
   tags: tags
   sku: {
     name: 'Y1'
@@ -196,11 +254,11 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
 }
 
 // Role Assignments with Function App principal ID variable
-var functionAppPrincipalId = reference(functionAppName, '2022-09-01', 'full').identity.principalId
+var functionAppPrincipalId = reference(names.functionApp, '2022-09-01', 'full').identity.principalId
 
 // Function App role assignments
 resource functionStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, functionAppName, blobDataContributor.id)
+  name: guid(resourceGroup().id, names.functionApp, blobDataContributor.id)
   scope: storageAccount
   properties: {
     roleDefinitionId: blobDataContributor.id
@@ -210,7 +268,7 @@ resource functionStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 resource functionSearchAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, functionAppName, searchContributor.id)
+  name: guid(resourceGroup().id, names.functionApp, searchContributor.id)
   scope: searchService
   properties: {
     roleDefinitionId: searchContributor.id
@@ -220,8 +278,8 @@ resource functionSearchAccess 'Microsoft.Authorization/roleAssignments@2022-04-0
 }
 
 resource functionAiAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, functionAppName, cognitiveServicesUser.id)
-  scope: aiServices
+  name: guid(resourceGroup().id, names.functionApp, cognitiveServicesUser.id)
+  scope: aiAgentService
   properties: {
     roleDefinitionId: cognitiveServicesUser.id
     principalId: functionAppPrincipalId
@@ -230,8 +288,8 @@ resource functionAiAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 }
 
 resource functionOpenAIAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, functionAppName, openAIContributor.id)
-  scope: aiServices
+  name: guid(resourceGroup().id, names.functionApp, openAIContributor.id)
+  scope: aiAgentService
   properties: {
     roleDefinitionId: openAIContributor.id
     principalId: functionAppPrincipalId
@@ -240,7 +298,7 @@ resource functionOpenAIAccess 'Microsoft.Authorization/roleAssignments@2022-04-0
 }
 
 resource functionFileShareAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, functionAppName, fileShareContributor.id)
+  name: guid(resourceGroup().id, names.functionApp, fileShareContributor.id)
   scope: storageAccount
   properties: {
     roleDefinitionId: fileShareContributor.id
@@ -251,8 +309,8 @@ resource functionFileShareAccess 'Microsoft.Authorization/roleAssignments@2022-0
 
 // Function App
 resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
-  name: functionAppName
-  location: location
+  name: names.functionApp
+  location: functionHostingRegion
   tags: tags
   kind: 'functionapp'
   identity: {
@@ -266,7 +324,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
       pythonVersion: '3.10'
       cors: {
         allowedOrigins: [
-          'https://${staticWebAppName}.azurestaticapps.net'
+          'https://${names.staticWebApp}.azurestaticapps.net'
           'http://localhost:3000'
         ]
       }
@@ -281,7 +339,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
-          value: toLower(functionAppName)
+          value: toLower(names.functionApp)
         }
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -317,15 +375,27 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         }
         {
           name: 'AI_ENDPOINT'
-          value: aiServices.properties.endpoint
+          value: aiAgentService.properties.endpoint
         }
         {
           name: 'AI_KEY'
-          value: aiServices.listKeys().key1
+          value: aiAgentService.listKeys().key1
+        }
+        {
+          name: 'CO_AI_ENDPOINT'
+          value: aiContentUnderstandingService.properties.endpoint
+        }
+        {
+          name: 'CO_AI_KEY'
+          value: aiContentUnderstandingService.listKeys().key1
         }
         {
           name: 'GPT_DEPLOYMENT_NAME'
           value: gpt4Deployment.name
+        }
+        {
+          name: 'AI_PROJECT_CONNECTION_STRING'
+          value: aiProject.tags.ProjectConnectionString
         }
       ]
     }
@@ -334,8 +404,8 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
 
 // Static Web App
 resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
-  name: staticWebAppName
-  location: staticWebAppLocation
+  name: names.staticWebApp
+  location: webHostingRegion
   tags: tags
   sku: {
     name: 'Standard'
@@ -353,15 +423,17 @@ resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
   }
 }
 
-// Link function app to static web app
+// Link function app to static web app - does this work cross region?
+/*
 resource staticWebAppBackend 'Microsoft.Web/staticSites/linkedBackends@2022-09-01' = {
   parent: staticWebApp
   name: 'backend'
   properties: {
     backendResourceId: functionApp.id
-    region: location
+    region: primaryRegion
   }
 }
+*/
 
 // Role Assignments
 resource searchContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
@@ -389,10 +461,87 @@ resource fileShareContributor 'Microsoft.Authorization/roleDefinitions@2022-04-0
   name: '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb'
 }
 
-output functionAppName string = functionApp.name
-output storageAccountName string = storageAccount.name
-output searchServiceName string = searchService.name
-output aiServicesName string = aiServices.name
-output staticWebAppName string = staticWebApp.name
-output staticWebAppUri string = staticWebApp.properties.defaultHostname
-output functionAppUri string = functionApp.properties.defaultHostName
+// AI Hub resource
+resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview' = {
+  name: names.aiHub
+  location: primaryRegion
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    friendlyName: aiHubConfig.displayName
+    description: aiHubConfig.description
+    systemDatastoresAuthMode: 'identity'
+  }
+  kind: 'hub'
+
+  resource aiServicesConnection 'connections@2024-07-01-preview' = {
+    name: connections.primary
+    properties: {
+      category: aiServiceType
+      target: aiAgentService.properties.endpoint
+      authType: 'ApiKey'
+      isSharedToAll: true
+      credentials: {
+        key: '${listKeys(aiAgentService.id, '2022-10-01').key1}'
+      }
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: aiAgentService.id
+        location: aiAgentService.location
+      }
+    }
+  }
+}
+
+// AI Project resource
+resource aiProject 'Microsoft.MachineLearningServices/workspaces@2023-08-01-preview' = {
+  name: names.aiProject
+  location: primaryRegion
+  tags: union(tags, {
+    ProjectConnectionString: projectConnection.connectionString
+  })
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    friendlyName: aiProjectConfig.displayName
+    description: aiProjectConfig.description
+    hubResourceId: aiHub.id
+  }
+  kind: 'project'
+}
+
+output endpoints object = {
+  functionApp: {
+    name: functionApp.name
+    uri: functionApp.properties.defaultHostName
+  }
+  staticWebApp: {
+    name: staticWebApp.name
+    uri: staticWebApp.properties.defaultHostname
+  }
+  storage: storageAccount.name
+  search: searchService.name
+  aiAgent: aiAgentService.name
+  aiContentUnderstanding: aiContentUnderstandingService.name
+}
+
+output aiConfiguration object = {
+  project: {
+    name: aiProject.name
+    id: aiProject.id
+    principalId: aiProject.identity.principalId
+    workspaceId: aiProject.properties.workspaceId
+    connectionString: aiProject.tags.ProjectConnectionString
+  }
+  hub: {
+    id: aiHub.id
+    connections: {
+      search: connections.aiSearch
+      agent: connections.aiAgent
+      contentUnderstanding: connections.aiContentUnderstanding
+    }
+  }
+}

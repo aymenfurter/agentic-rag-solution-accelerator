@@ -2,31 +2,49 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-      "workloadName": {
-        "value": "agentic-rag"
-      },
-      "location": {
-        "value": "westus"
-      },
-      "tags": {
-        "value": {
-          "environment": "production",
-          "project": "agentic-rag",
-          "owner": "enterprise-ai",
-          "costCenter": "123456"
+        "workloadName": {
+            "value": "agentic-rag"
+        },
+        "primaryRegion": {
+            "value": "eastus"
+        },
+        "webHostingRegion": {
+            "value": "westus2"
+        },
+        "contentUnderstandingRegion": {
+            "value": "australiaeast"
+        },
+        "publicNetworkAccess": {
+            "value": "Enabled"
+        },
+        "gpt4ModelCapacity": {
+            "value": 10
+        },
+        "gpt4ModelVersion": {
+            "value": "2024-05-13"
+        },
+        "aiServiceType": {
+            "value": "AIServices"
+        },
+        "aiHubConfig": {
+            "value": {
+                "displayName": "AI Hub for agentic-rag",
+                "description": "AI Hub for agentic-rag"
+            }
+        },
+        "aiProjectConfig": {
+            "value": {
+                "displayName": "AI Project for agentic-rag",
+                "description": "AI Project for document processing"
+            }
+        },
+        "tags": {
+            "value": {
+                "environment": "production",
+                "project": "agentic-rag",
+                "owner": "enterprise-ai",
+                "costCenter": "123456"
+            }
         }
-      },
-      "publicNetworkAccess": {
-        "value": "Enabled"
-      },
-      "authMode": {
-        "value": "rbac"
-      },
-      "modelCapacity": {
-        "value": 10
-      },
-      "modelVersion": {
-        "value": "2024-05-13"
-      }
     }
-   }
+}

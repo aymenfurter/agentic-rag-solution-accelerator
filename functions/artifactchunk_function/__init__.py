@@ -1,25 +1,26 @@
-import azure.functions as func
-import os
 import json
 import logging
+import os
+import azure.functions as func
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
-from azure.search.documents.models import QueryType, VectorizedQuery
+from azure.search.documents.models import QueryType
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("Processing artifact chunk search request")
+def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
+    logging.info('Python queue trigger function processed a queue item')
     
     try:
-        # Get request payload
-        body = req.get_json()
-        payload = body.get("payload", {})
+        # Parse the queue message
+        message_payload = json.loads(msg.get_body().decode('utf-8'))
+        correlation_id = message_payload.get('CorrelationId')
+        payload = message_payload.get('payload', {})
         
         # Extract search parameters
         search_text = payload.get("searchText", "*")
         filter_expr = payload.get("filter")
         semantic_ranking = payload.get("semanticRanking", False)
         question_rewriting = payload.get("questionRewriting", False)
-        top_k = min(payload.get("topK", 5), 50)  # Limit max results
+        top_k = min(payload.get("topK", 5), 50)
         
         # Initialize search client
         search_client = SearchClient(
@@ -43,8 +44,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "semantic_configuration_name": "default"
             })
 
-        # If question rewriting is enabled, we could enhance the query
-        # This would typically be done via an LLM call to rephrase the query
         if question_rewriting:
             # TODO: Implement question rewriting using Azure AI Services
             pass
@@ -67,7 +66,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "score": result.get("@search.score")
             }
             
-            # Add optional fields if present
             if "segmentTimestamp" in result:
                 doc["segmentTimestamp"] = result["segmentTimestamp"]
             if "headers" in result:
@@ -75,19 +73,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 
             docs.append(doc)
         
-        return func.HttpResponse(
-            json.dumps({
+        # Send results to output queue
+        output_message = {
+            "Value": {
                 "results": docs,
                 "count": results.get_count()
-            }),
-            status_code=200,
-            mimetype="application/json"
-        )
+            },
+            "CorrelationId": correlation_id
+        }
+        outputQueueItem.set(json.dumps(output_message))
         
     except Exception as e:
         logging.error(f"Error in artifactchunk_function: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=500,
-            mimetype="application/json"
-        )
+        # Send error to output queue
+        error_message = {
+            "error": str(e),
+            "CorrelationId": correlation_id
+        }
+        outputQueueItem.set(json.dumps(error_message))

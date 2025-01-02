@@ -2,12 +2,26 @@ import { Field } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-export const setupAgent = async (fields: Field[], template?: string) => {
+interface SetupAgentRequest {
+  name: string;
+  fields: any[];
+  scenario: string;
+  instructions: string;
+}
+
+export const setupAgent = async (request: SetupAgentRequest) => {
   const response = await fetch(`${BASE_URL}/api/setupAgent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields, template })
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
   });
+
+  if (!response.ok) {
+    throw new Error(`Setup failed: ${response.statusText}`);
+  }
+
   return response.json();
 };
 

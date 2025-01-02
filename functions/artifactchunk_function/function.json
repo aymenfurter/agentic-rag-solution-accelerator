@@ -2,19 +2,18 @@
   "scriptFile": "__init__.py",
   "bindings": [
     {
-      "authLevel": "function",
-      "type": "httpTrigger",
+      "name": "msg",
+      "type": "queueTrigger",
       "direction": "in",
-      "name": "req",
-      "methods": [
-        "post"
-      ],
-      "route": "artifactchunk"
+      "queueName": "artifactchunk-input",
+      "connection": "STORAGE_CONNECTION_STRING"
     },
     {
-      "type": "http",
+      "name": "outputQueueItem",
+      "type": "queue",
       "direction": "out",
-      "name": "$return"
+      "queueName": "artifactchunk-output",
+      "connection": "STORAGE_CONNECTION_STRING"
     }
   ]
 }

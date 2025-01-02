@@ -1,26 +1,41 @@
 {
   "name": "Standard RAG",
   "description": "Basic template for document analysis",
+  "scenario": "document",
   "fields": [
     {
       "name": "keywords",
       "type": "array",
-      "description": "Key topics or terms from the document"
+      "description": "Key topics or terms from the document",
+      "method": "extract",
+      "items": {
+        "type": "string",
+        "method": "generate"
+      }
     },
     {
       "name": "author",
       "type": "string",
-      "description": "Document author"
+      "description": "Document author",
+      "method": "generate"
     },
     {
       "name": "createdDate",
-      "type": "date",
-      "description": "Document creation date"
+      "type": "string",
+      "description": "Document creation date",
+      "method": "generate"
     },
     {
       "name": "language",
       "type": "string",
-      "description": "Document language"
+      "description": "Document language",
+      "method": "generate"
+    },
+    {
+      "name": "summary",
+      "type": "string",
+      "description": "Summary of the document content",
+      "method": "generate"
     }
   ],
   "instructions": "You are a helpful assistant for analyzing documents and providing relevant information based on user queries."
