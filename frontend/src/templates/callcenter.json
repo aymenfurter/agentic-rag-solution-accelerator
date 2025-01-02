@@ -1,5 +1,5 @@
 {
-  "name": "Call Center",
+  "name": "CallCenter",
   "description": "Template for analyzing call center conversations",
   "scenario": "conversation",
   "fields": [

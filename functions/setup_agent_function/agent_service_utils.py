@@ -5,8 +5,6 @@ from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import (
     AzureFunctionStorageQueue, 
     AzureFunctionTool,
-    FileSearchTool,
-    ToolResources
 )
 from azure.identity import DefaultAzureCredential
 
@@ -62,11 +60,13 @@ def create_or_update_agent(schema_data: Dict[str, Any]) -> Dict[str, Any]:
 
         base_instructions = f"""{schema_data['instructions']}
 
-Available fields for searching and filtering:
+Available fields for searching and filtering (Artifact-level):
 {chr(10).join(field_instructions)}
 
 You can create filters using OData syntax. Examples:
 {chr(10).join(filter_examples)}
+
+You can filter by individual artifact chunk (i.e. search in context of a single document) by using the 'ArtifactChunk' tool and applying the filter: 'parentArtifactId eq 'artifactId'.
 
 When searching documents, construct relevant filters based on the user's request.
 """
@@ -78,10 +78,9 @@ When searching documents, construct relevant filters based on the user's request
             parameters={
                 "type": "object",
                 "properties": {
-                    "searchText": {"type": "string"},
+                    "searchText": {"type": "string", "description": "Search text"},
                     "filter": {"type": "string", "description": "OData filter expression"},
-                },
-                "required": ["searchText"]
+                }
             },
             input_queue=AzureFunctionStorageQueue(
                 queue_name="artifact-input",
@@ -101,8 +100,7 @@ When searching documents, construct relevant filters based on the user's request
                 "properties": {
                     "searchText": {"type": "string"},
                     "filter": {"type": "string", "description": "OData filter expression"},
-                },
-                "required": ["searchText"]
+                }
             },
             input_queue=AzureFunctionStorageQueue(
                 queue_name="artifactchunk-input",
@@ -114,20 +112,15 @@ When searching documents, construct relevant filters based on the user's request
             )
         )
 
-        tool_definitions = [
-            artifact_tool.definitions,
-            chunk_tool.definitions
-        ]
-
         agent = project_client.agents.create_agent(
             model=os.environ["GPT_DEPLOYMENT_NAME"],
             name=schema_data["name"],
             instructions=base_instructions,
-            headers={"x-ms-enable-preview": "true"},
-            tools=tool_definitions
+            tools=chunk_tool.definitions + artifact_tool.definitions,
         )
 
-        return agent.to_dict()
+
+        return agent
 
     except Exception as e:
         logging.error(f"Error creating agent: {str(e)}")

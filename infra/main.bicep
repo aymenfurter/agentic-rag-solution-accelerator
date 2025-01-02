@@ -461,6 +461,32 @@ resource fileShareContributor 'Microsoft.Authorization/roleDefinitions@2022-04-0
   name: '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb'
 }
 
+// Add Key Vault resource before AI Hub
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: '${names.aiHub}-kv'
+  location: primaryRegion
+  tags: tags
+  properties: {
+    createMode: 'default'
+    enabledForDeployment: false
+    enabledForDiskEncryption: false
+    enabledForTemplateDeployment: false
+    enableSoftDelete: true
+    enableRbacAuthorization: true
+    enablePurgeProtection: true
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: publicNetworkAccess == 'Enabled' ? 'Allow' : 'Deny'
+    }
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    softDeleteRetentionInDays: 7
+    tenantId: subscription().tenantId
+  }
+}
+
 // AI Hub resource
 resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview' = {
   name: names.aiHub
@@ -472,6 +498,8 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview'
   properties: {
     friendlyName: aiHubConfig.displayName
     description: aiHubConfig.description
+    keyVault: keyVault.id
+    storageAccount: storageAccount.id
     systemDatastoresAuthMode: 'identity'
   }
   kind: 'hub'
@@ -481,16 +509,35 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-07-01-preview'
     properties: {
       category: aiServiceType
       target: aiAgentService.properties.endpoint
-      authType: 'ApiKey'
+      authType: 'AAD'
       isSharedToAll: true
-      credentials: {
-        key: '${listKeys(aiAgentService.id, '2022-10-01').key1}'
-      }
       metadata: {
         ApiType: 'Azure'
         ResourceId: aiAgentService.id
         location: aiAgentService.location
       }
+    }
+  }
+
+  resource searchServicesConnection 'connections@2024-07-01-preview' = {
+    name: connections.aiSearch
+    properties: {
+      category: 'CognitiveSearch'
+      target: 'https://${searchService.name}.search.windows.net'
+      authType: 'AAD'
+      isSharedToAll: true
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: searchService.id
+        location: searchService.location
+      }
+    }
+  }
+
+  resource capabilityHost 'capabilityHosts@2024-10-01-preview' = {
+    name: '${names.aiHub}-host'
+    properties: {
+      capabilityHostKind: 'Agents'
     }
   }
 }
@@ -511,6 +558,35 @@ resource aiProject 'Microsoft.MachineLearningServices/workspaces@2023-08-01-prev
     hubResourceId: aiHub.id
   }
   kind: 'project'
+
+  resource capabilityHost 'capabilityHosts@2024-10-01-preview' = {
+    name: '${names.aiProject}-host'
+    properties: {
+      capabilityHostKind: 'Agents'
+      aiServicesConnections: ['${connections.primary}']
+      vectorStoreConnections: ['${connections.aiSearch}']
+      storageConnections: ['${names.aiProject}/workspaceblobstore']
+    }
+  }
+}
+
+// Add role assignments for AI Project
+module aiServiceRoleAssignments './ai-service-role-assignments.bicep' = {
+  name: 'aiserviceroleassignments-${resourceSuffix}'
+  params: {
+    aiServicesName: aiAgentService.name
+    aiProjectPrincipalId: aiProject.identity.principalId
+    aiProjectId: aiProject.id
+  }
+}
+
+module aiSearchRoleAssignments './ai-search-role-assignments.bicep' = {
+  name: 'aisearchroleassignments-${resourceSuffix}'
+  params: {
+    aiSearchName: searchService.name
+    aiProjectPrincipalId: aiProject.identity.principalId
+    aiProjectId: aiProject.id
+  }
 }
 
 output endpoints object = {

@@ -1,5 +1,5 @@
 {
-  "name": "Standard RAG",
+  "name": "StandardRAG",
   "description": "Basic template for document analysis",
   "scenario": "document",
   "fields": [
