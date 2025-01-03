@@ -24,6 +24,10 @@ def create_or_update_agent(schema_data: Dict[str, Any]) -> Dict[str, Any]:
         function_app_name = os.environ.get("WEBSITE_CONTENTSHARE", "")
         if not function_app_name:
             raise ValueError("Could not determine function app name from WEBSITE_CONTENTSHARE")
+
+        storage_account_name = os.environ.get("STORAGE_ACCOUNT_NAME", "")
+        queue_service_uri = f"https://{storage_account_name}.queue.core.windows.net"
+        
             
         # Construct base function URL
         function_base_url = f"https://{function_app_name}.azurewebsites.net/api"
@@ -70,6 +74,10 @@ You can filter by individual document chunks by using the 'ArtifactChunk' tool a
 
 Use the Artifact tool for high-level document searches and metadata queries.
 Use the ArtifactChunk tool for searching within specific documents or when you need detailed content analysis
+
+IMPORTANT:
+When you invoke the Artifact, ALWAYS specify the output queue uri parameter as '{queue_service_uri}/artifact-input'.
+When you invoke the ArtifactChunk, ALWAYS specify the output queue uri parameter as '{queue_service_uri}/artifactchunk-input'.
 """
 
         # Create function tools
@@ -81,15 +89,16 @@ Use the ArtifactChunk tool for searching within specific documents or when you n
                 "properties": {
                     "searchText": {"type": "string", "description": "Search text"},
                     "filter": {"type": "string", "description": "OData filter expression"},
+                    "outputqueueuri": {"type": "string", "description": f"""The full output queue uri. must always be set to {queue_service_uri}/artifact-input"""}
                 }
             },
             input_queue=AzureFunctionStorageQueue(
                 queue_name="artifact-input",
-                storage_service_endpoint=os.environ["STORAGE_CONNECTION_STRING"]
+                storage_service_endpoint=queue_service_uri
             ),
             output_queue=AzureFunctionStorageQueue(
                 queue_name="artifact-output",
-                storage_service_endpoint=os.environ["STORAGE_CONNECTION_STRING"]
+                storage_service_endpoint=queue_service_uri
             )
         )
 
@@ -101,21 +110,23 @@ Use the ArtifactChunk tool for searching within specific documents or when you n
                 "properties": {
                     "searchText": {"type": "string"},
                     "filter": {"type": "string", "description": "OData filter expression"},
+                    "outputqueueuri": {"type": "string", "description": f"""The full output queue uri. must always be set to {queue_service_uri}/artifactchunk-input"""}
                 }
             },
             input_queue=AzureFunctionStorageQueue(
                 queue_name="artifactchunk-input",
-                storage_service_endpoint=os.environ["STORAGE_CONNECTION_STRING"]
+                storage_service_endpoint=queue_service_uri
             ),
             output_queue=AzureFunctionStorageQueue(
                 queue_name="artifactchunk-output",
-                storage_service_endpoint=os.environ["STORAGE_CONNECTION_STRING"]
+                storage_service_endpoint=queue_service_uri
             )
         )
 
         agent = project_client.agents.create_agent(
             model=os.environ["GPT_DEPLOYMENT_NAME"],
             name=schema_data["name"],
+            headers={"x-ms-enable-preview": "true"},
             instructions=base_instructions,
             tools=chunk_tool.definitions + artifact_tool.definitions,
         )

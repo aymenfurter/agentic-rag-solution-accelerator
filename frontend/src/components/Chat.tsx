@@ -1,15 +1,50 @@
 // /src/components/Chat.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Stack, TextField, PrimaryButton, Text } from '@fluentui/react';
-import { ChatMessage, SearchResult } from '../types';
-import { searchArtifacts, searchChunks } from '../utils/api';
-import AudioPlayer from './AudioPlayer';
+import { ChatMessage } from '../types';
+import { sendChatMessage, loadChatHistory, createChatThread } from '../utils/api';
+import { v4 as uuidv4 } from 'uuid';
 
 export const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [threadId, setThreadId] = useState<string>('');
   const chatEndRef = useRef<null | HTMLDivElement>(null);
+
+  useEffect(() => {
+    const initializeChat = async () => {
+      // Get thread ID from local storage or create new one
+      const savedThreadId = localStorage.getItem('chatThreadId');
+      
+      if (savedThreadId) {
+        setThreadId(savedThreadId);
+        try {
+          const history = await loadChatHistory(savedThreadId);
+          setMessages(history.messages);
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+          // If loading fails, create new thread
+          await createNewThread();
+        }
+      } else {
+        await createNewThread();
+      }
+    };
+
+    const createNewThread = async () => {
+      try {
+        const { threadId: newThreadId } = await createChatThread();
+        localStorage.setItem('chatThreadId', newThreadId);
+        setThreadId(newThreadId);
+        setMessages([]);
+      } catch (error) {
+        console.error('Error creating chat thread:', error);
+      }
+    };
+
+    initializeChat();
+  }, []);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,7 +55,7 @@ export const Chat: React.FC = () => {
   }, [messages]);
 
   const handleSubmit = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !threadId) return;
 
     setLoading(true);
     const userMessage: ChatMessage = {
@@ -30,39 +65,14 @@ export const Chat: React.FC = () => {
     };
 
     try {
-      // First try artifact-level search
-      const artifactResults = await searchArtifacts({
-        searchText: input,
-        semanticRanking: true,
-        topK: 3
-      });
+      const response = await sendChatMessage(input, threadId);
+      const assistantMessage: ChatMessage = {
+        role: response.role,
+        content: response.content,
+        timestamp: response.timestamp
+      };
 
-      // If no high-level results, try chunk-level search
-      if (!artifactResults.results.length) {
-        const chunkResults = await searchChunks({
-          searchText: input,
-          semanticRanking: true,
-          questionRewriting: true,
-          topK: 5
-        });
-
-        // Process results and add to chat
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: processResults(chunkResults.results),
-          timestamp: new Date().toISOString()
-        };
-
-        setMessages([...messages, userMessage, assistantMessage]);
-      } else {
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: processResults(artifactResults.results),
-          timestamp: new Date().toISOString()
-        };
-
-        setMessages([...messages, userMessage, assistantMessage]);
-      }
+      setMessages([...messages, userMessage, assistantMessage]);
     } catch (error) {
       console.error('Error in chat:', error);
       const errorMessage: ChatMessage = {
@@ -75,12 +85,6 @@ export const Chat: React.FC = () => {
 
     setLoading(false);
     setInput('');
-  };
-
-  const processResults = (results: SearchResult[]) => {
-    // Process and format the search results
-    // This could be enhanced with better result formatting
-    return results.map(result => result.content).join('\n\n');
   };
 
   return (

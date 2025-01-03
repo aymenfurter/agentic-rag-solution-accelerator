@@ -4,10 +4,65 @@ import json
 import os
 from azure.storage.blob import BlobServiceClient
 from .markdown_chunker import MarkdownChunker
-from .audio_chunker import AudioTranscriptChunker
-from ingestion_function.content_understanding_utils import analyze_file
+from .audio_chunker import AudioTranscriptChunker 
+from .content_understanding_utils import analyze_file
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
+from datetime import datetime
+
+def process_content_item(content_item: dict, metadata: dict, schema_json: dict) -> tuple[dict, list]:
+    """Process a single content item and return artifact doc and chunks"""
+    content_kind = content_item.get("kind", "document")
+    
+    # Extract fields and their values from content item
+    fields = content_item.get("fields", {})
+    content_metadata = {
+        **metadata
+    }
+    
+    # Extract values from fields, handling complex field structures
+    for k, v in fields.items():
+        if isinstance(v, dict):
+            if v.get("type") == "array":
+                content_metadata[k] = [
+                    item.get("valueString", "") 
+                    for item in v.get("valueArray", [])
+                ] or []
+            else:
+                content_metadata[k] = v.get("valueString", "")
+        else:
+            content_metadata[k] = v
+
+    # Create artifact document with correct field names (no chunk prefix)
+    artifact_doc = {
+        "id": metadata["id"],  # Use id for artifacts
+        "content": content_item.get("markdown", ""),
+        "docType": metadata["docType"],
+        "timestamp": metadata["timestamp"],
+        "fileName": metadata["fileName"]
+    }
+    
+    # Add schema-defined fields
+    for k, v in content_metadata.items():
+        if k in [f["name"] for f in schema_json.get("fields", [])]:
+            artifact_doc[k] = v
+    
+    # Create chunks
+    chunks = []
+    if content_kind == "audioVisual":
+        chunker = AudioTranscriptChunker()
+        markdown_content = content_item.get("markdown", "")
+        chunks = chunker.create_chunks(markdown_content, metadata)
+    else:
+        chunker = MarkdownChunker()
+        markdown_content = content_item.get("markdown", "")
+        chunks = chunker.create_chunks(markdown_content, metadata)
+    
+    return artifact_doc, chunks
+
+def format_datetime(dt):
+    """Format datetime in ISO 8601 format with Z suffix"""
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 def main(myblob: func.InputStream):
     logging.info(f"Processing new blob: {myblob.name}")
@@ -15,80 +70,44 @@ def main(myblob: func.InputStream):
     try:
         # Get blob content
         content = myblob.read()
-        blob_name = myblob.name.split("/")[-1]  # e.g. <guid>_<filename>
+        blob_name = myblob.name.split("/")[-1]
         file_id = blob_name.split("_")[0]
-
-        # Get blob storage client
-        blob_conn_str = os.environ["STORAGE_CONNECTION_STRING"]
-        blob_client = BlobServiceClient.from_connection_string(blob_conn_str)
+        original_filename = "_".join(blob_name.split("_")[1:])
+        file_type = original_filename.split(".")[-1].lower()
         
         # Get user configuration
+        blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
         container_client = blob_client.get_container_client("schemas")
         config_blob = container_client.get_blob_client("user_config.json")
         schema_json = json.loads(config_blob.download_blob().readall())
-
-        # Get file type from filename
-        file_type = blob_name.split(".")[-1].lower()
         
-        # Call Content Understanding for analysis
-        analyzer_id = schema_json.get("name", "customAnalyzer")
-        analyze_result = analyze_file(analyzer_id, content)
-
-        # Create metadata for chunks
-        original_filename = "_".join(blob_name.split("_")[1:])  # Original filename
-        metadata = {
-            "fileName": original_filename,
-            **analyze_result.get("metadata", {})
-        }
-
-        # Create artifact document
-        artifact_doc = {
+        # Create base metadata with properly formatted timestamp
+        base_metadata = {
             "id": file_id,
-            "docType": "artifact",
-            **metadata,
-            **{k: v for k, v in analyze_result.get("metadata", {}).items() 
-               if k in [f["name"] for f in schema_json.get("fields", [])]}
+            "fileName": original_filename,
+            "timestamp": format_datetime(datetime.utcnow()),
+            "docType": "artifact"
         }
-
-        # Create chunk documents with parent reference
-        chunks = []
-        for idx, chunk in enumerate(analyze_result.get("chunks", [])):
-            chunk_doc = {
-                "chunk_id": f"{file_id}_chunk_{idx}",
-                "chunk_content": chunk["content"],
-                "chunk_docType": "chunk",
-                "chunk_fileName": original_filename,  # This is the correct field for linking
-                "chunkNumber": idx,
-                **{f"chunk_{k}": v for k, v in metadata.items()}
-            }
-            chunks.append(chunk_doc)
-
-        # Choose appropriate chunker based on file type
-        if file_type in ['md', 'markdown']:
-            chunker = MarkdownChunker()
-            chunks = chunker.create_chunks(content.decode('utf-8'), metadata)
-        elif file_type in ['wav', 'mp3', 'ogg']:
-            chunker = AudioTranscriptChunker()
-            transcript_text = analyze_result.get('transcript', '')
-            chunks = chunker.create_chunks(transcript_text, metadata)
-        else:
-            # Default text chunking through Content Understanding
-            chunks = analyze_result.get('chunks', [])
-
-        # Create summary document
-        summary = analyze_result.get('summary', '')
-        if summary:
-            summary_doc = {
-                "id": f"{file_id}_summary",
-                "content": summary,
-                "docType": "artifact",
-                "artifactId": file_id,
-                "fileName": metadata["fileName"],
-                **metadata
-            }
-            chunks.append(summary_doc)
-
-        # Get search clients for both indexes with static names
+        
+        # Get content understanding analysis
+        analyze_result = analyze_file(schema_json.get("name"), content)
+        if not analyze_result or not analyze_result.get("contents"):
+            raise ValueError("No content analysis results")
+        
+        # Process all content items
+        all_artifacts = []
+        all_chunks = []
+        
+        for content_item in analyze_result["contents"]:
+            artifact_doc, chunks = process_content_item(
+                content_item,
+                base_metadata,
+                schema_json  # Pass schema_json to process_content_item
+            )
+            all_artifacts.append(artifact_doc)
+            all_chunks.extend(chunks)
+        
+        # Upload to search
         search_endpoint = os.environ["SEARCH_ENDPOINT"]
         search_key = os.environ["SEARCH_ADMIN_KEY"]
         
@@ -103,14 +122,12 @@ def main(myblob: func.InputStream):
             index_name="chunks",
             credential=AzureKeyCredential(search_key)
         )
-
-        # Upload to respective indexes
-        artifact_client.upload_documents(documents=[artifact_doc])
-        if chunks:
-            chunk_client.upload_documents(documents=chunks)
         
-        return
-
+        if all_artifacts:
+            artifact_client.upload_documents(documents=all_artifacts)
+        if all_chunks:
+            chunk_client.upload_documents(documents=all_chunks)
+            
     except Exception as e:
         logging.error(f"Error in ingestion function: {str(e)}")
         raise

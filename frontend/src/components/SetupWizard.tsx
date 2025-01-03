@@ -52,6 +52,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     }
   };
 
+  const handleSkip = () => {
+    onComplete({} as Template);
+
+  };
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
 
@@ -105,6 +109,11 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           <PrimaryButton 
             text="Complete Setup" 
             onClick={handleSubmit}
+          />
+
+<PrimaryButton 
+            text="Skip" 
+            onClick={handleSkip}
           />
         </Stack>
       )}

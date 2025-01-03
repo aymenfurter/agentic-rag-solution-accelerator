@@ -86,6 +86,9 @@ var projectConnection = {
   connectionString: '${primaryRegion}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${names.aiProject}'
 }
 
+
+// TODO: Add queues for function app..
+
 // Storage Account
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: names.storage
@@ -397,6 +400,10 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
           name: 'AI_PROJECT_CONNECTION_STRING'
           value: aiProject.tags.ProjectConnectionString
         }
+        { 
+          name: 'STORAGE_ACCOUNT_NAME'
+          value: storageAccount.name
+        }
       ]
     }
   }
@@ -587,6 +594,36 @@ module aiSearchRoleAssignments './ai-search-role-assignments.bicep' = {
     aiProjectPrincipalId: aiProject.identity.principalId
     aiProjectId: aiProject.id
   }
+}
+
+resource aiProjectStorageQueueAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, aiProject.name, storageQueueDataContributor.id)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: storageQueueDataContributor.id
+    principalId: aiProject.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource aiProjectStorageTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, aiProject.name, storageTableDataContributor.id)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: storageTableDataContributor.id
+    principalId: aiProject.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource storageQueueDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: resourceGroup()
+  name: '974c5e8b-45b9-4653-ba55-5f855dd0fb88'  // Storage Queue Data Contributor
+}
+
+resource storageTableDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: resourceGroup()
+  name: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'  // Storage Table Data Contributor
 }
 
 output endpoints object = {

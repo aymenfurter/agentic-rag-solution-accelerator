@@ -1,152 +1,102 @@
 # /shared/chunking/audio_chunker.py
-from typing import List, NamedTuple, Dict, Any
+from typing import List, Dict, Any
 import re
 from datetime import datetime
 import logging
 
-class Segment(NamedTuple):
-    """Represents a segment of transcribed audio"""
-    content: str
-    timestamp: str
-    full_segment: str
-    plain_segment: str
-
 class AudioTranscriptChunker:
-    """Chunks audio transcripts while preserving timestamp information"""
+    """Chunks audio transcripts from WEBVTT format while preserving timestamp information"""
     
-    def __init__(self, overlap: int = 20, chunk_size: int = 60):
-        """
-        Initialize the transcript chunker
-        
-        Args:
-            overlap: Number of overlapping phrases between chunks
-            chunk_size: Number of phrases per chunk
-        """
-        if overlap > chunk_size:
-            raise ValueError("Overlap cannot exceed chunk size.")
-        self.overlap = overlap
+    def __init__(self, chunk_size: int = 10, overlap: int = 2):
+        """Initialize with number of segments per chunk"""
         self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    def parse_webvtt(self, markdown_content: str) -> List[Dict[str, Any]]:
+        """Parse WEBVTT format from markdown code block"""
+        if not isinstance(markdown_content, str):
+            logging.warning("Markdown content is not a string")
+            return []
+            
+        logging.info(f"Parsing WEBVTT content: {markdown_content[:200]}...")
+        
+        # Match timestamps and text with or without speaker tags
+        pattern = r'(\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}\.\d{3})\n(?:<v ([^>]+)>)?([^\n]+)'
+        matches = re.finditer(pattern, markdown_content, re.MULTILINE)
+        
+        segments = []
+        for match in matches:
+            start_time, end_time, speaker, text = match.groups()
+            
+            # Handle cases where speaker tag might be missing
+            if not speaker:
+                speaker = "Speaker"
+            
+            # Convert time to milliseconds
+            start_ms = self.timestamp_to_ms(start_time)
+            end_ms = self.timestamp_to_ms(end_time)
+            
+            segments.append({
+                "startTimeMs": start_ms,
+                "endTimeMs": end_ms,
+                "speaker": speaker.strip(),
+                "text": text.strip()
+            })
+            
+        logging.info(f"Found {len(segments)} segments")
+        return segments
+
+    def timestamp_to_ms(self, timestamp: str) -> int:
+        """Convert WEBVTT timestamp to milliseconds"""
+        try:
+            minutes, seconds = timestamp.split(':')
+            total_seconds = int(minutes) * 60 + float(seconds)
+            return int(total_seconds * 1000)
+        except Exception as e:
+            logging.error(f"Error converting timestamp {timestamp}: {str(e)}")
+            return 0
 
     def create_chunks(
         self,
-        text_data: str,
+        content: str,
         metadata: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """
-        Create chunks from timestamped transcript
-        
-        Args:
-            text_data: Timestamped transcript text
-            metadata: Document metadata
-            
-        Returns:
-            List of chunk documents for search indexing
-        """
-        logging.info(f"Creating chunks from text data of length: {len(text_data)}")
-        logging.info(f"First 200 chars of text: {text_data[:200]}")
-        logging.info(f"Metadata received: {metadata}")
-        
-        segments = self.split_transcript(text_data)
-        logging.info(f"Created {len(segments)} segments")
-        
+        """Create overlapping chunks from WEBVTT content"""
+        segments = self.parse_webvtt(content)
         chunks = []
         
-        for i, segment in enumerate(segments):
-            chunk_id = f"{metadata['artifactId']}_chunk_{i}"
-            logging.info(f"Processing segment {i} with timestamp: {segment.timestamp}")
+        # Process segments in overlapping windows
+        for i in range(0, len(segments), self.chunk_size - self.overlap):
+            window = segments[i:i + self.chunk_size]
+            if not window:
+                continue
             
-            # Create chunk document
+            # Get time range
+            start_time = window[0]["startTimeMs"]
+            end_time = window[-1]["endTimeMs"]
+            
+            # Combine text with speaker attribution
+            chunk_content = "\n".join(
+                f"[{s['speaker']}] {s['text']}"
+                for s in window
+            )
+            
+            # Use chunk_ prefix for all fields in chunks
             chunk = {
-                "id": chunk_id,
-                "content": segment.content,
-                "docType": "chunk",
-                "artifactId": metadata.get("artifactId"),
-                "fileName": metadata.get("fileName"),
-                "timestamp": metadata.get("timestamp", datetime.utcnow().isoformat()),
-                "segmentTimestamp": segment.timestamp,
-                "fullSegment": segment.full_segment,
-                "plainSegment": segment.plain_segment,
-                **{k:v for k,v in metadata.items() if k not in ["artifactId", "fileName", "timestamp"]}
+                "chunk_id": f"{metadata['id']}_chunk_{i//self.chunk_size}",  # Use chunk_id for chunks
+                "chunk_content": chunk_content,
+                "chunk_docType": "chunk",
+                "chunk_fileName": metadata["fileName"],
+                "chunk_timestamp": metadata["timestamp"],
+                "chunk_segmentStartTime": start_time,
+                "chunk_segmentEndTime": end_time
             }
+            
+            # Add metadata fields with chunk_ prefix
+            for k, v in metadata.items():
+                if k not in ["id", "fileName", "timestamp", "docType"]:
+                    chunk[f"chunk_{k}"] = v
             
             chunks.append(chunk)
             
-        logging.info(f"Returning {len(chunks)} chunks")
         return chunks
-
-    def split_transcript(self, text_data: str) -> List[Segment]:
-        """
-        Split transcript into segments
-        
-        Args:
-            text_data: Timestamped transcript text
-            
-        Returns:
-            List of Segment objects
-        """
-        logging.info("Splitting transcript into segments")
-        phrases = self._parse_phrases(text_data)
-        logging.info(f"Found {len(phrases)} phrases")
-        
-        if len(phrases) == 0:
-            logging.warning("No phrases found in transcript")
-            return []
-            
-        # If total phrases less than chunk size, return single segment
-        if len(phrases) < self.chunk_size:
-            logging.info(f"Phrases count ({len(phrases)}) less than chunk size ({self.chunk_size}), creating single segment")
-            return [self._create_segment(phrases)]
-            
-        # Calculate stride for overlapping chunks
-        stride = self.chunk_size - self.overlap
-        
-        # Create overlapping segments
-        return [
-            self._create_segment(phrases[i:i + self.chunk_size])
-            for i in range(0, len(phrases) - self.chunk_size + 1, stride)
-        ]
-
-    def _create_segment(self, phrases: List[tuple]) -> Segment:
-        """
-        Create a segment from a list of timestamped phrases
-        
-        Args:
-            phrases: List of (timestamp, text) tuples
-            
-        Returns:
-            Segment object
-        """
-        if not phrases:
-            logging.warning("Attempting to create segment from empty phrases list")
-            return Segment("", "00:00:00", "", "")
-            
-        logging.info(f"Creating segment from {len(phrases)} phrases")
-        logging.info(f"First phrase: {phrases[0]}")
-        
-        timestamp = phrases[0][0]
-        content = ' '.join(p[1] for p in phrases)
-        full_segment = ' '.join(f'[{t}] {s}' for t, s in phrases)
-        plain_segment = ' '.join(s for _, s in phrases)
-        
-        return Segment(content, timestamp, full_segment, plain_segment)
-
-    def _parse_phrases(self, transcript: str) -> List[tuple]:
-        """
-        Parse timestamped phrases from transcript
-        
-        Args:
-            transcript: Timestamped transcript text
-            
-        Returns:
-            List of (timestamp, text) tuples
-        """
-        logging.info("Parsing phrases from transcript")
-        phrases = re.findall(
-            r'\[(\d{2}:\d{2}:\d{2})\]\s(.+?)(?=\s\[\d{2}:\d{2}:\d{2}\]|\Z)',
-            transcript
-        )
-        logging.info(f"Found {len(phrases)} phrases using regex")
-        if len(phrases) == 0:
-            logging.warning("Regex pattern found no matches in transcript")
-            logging.info(f"Transcript sample: {transcript[:200]}")
-        return phrases

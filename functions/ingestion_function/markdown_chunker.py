@@ -3,6 +3,10 @@ import re
 from typing import List, Dict, Any
 from datetime import datetime
 
+def format_datetime(dt):
+    """Format datetime in ISO 8601 format with Z suffix"""
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
 class MarkdownChunker:
     """Markdown document chunker with header preservation"""
     
@@ -101,12 +105,19 @@ class MarkdownChunker:
         metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Create chunk document with common fields"""
+        # Ensure timestamp is properly formatted
+        chunk_metadata = {
+            k: format_datetime(v) if k == 'timestamp' else v 
+            for k, v in metadata.items()
+        }
+        
         return {
             "id": chunk_id,
             "content": content,
             "docType": "chunk",
-            "artifactId": metadata.get("artifactId"),
-            "fileName": metadata.get("fileName"),
-            "timestamp": metadata.get("timestamp", datetime.utcnow().isoformat()),
-            **{k:v for k,v in metadata.items() if k not in ["artifactId", "fileName", "timestamp"]}
+            "artifactId": chunk_metadata.get("artifactId"),
+            "fileName": chunk_metadata.get("fileName"),
+            "timestamp": chunk_metadata.get("timestamp"),
+            **{k:v for k,v in chunk_metadata.items() 
+               if k not in ["artifactId", "fileName", "timestamp"]}
         }

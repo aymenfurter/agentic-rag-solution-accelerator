@@ -25,6 +25,8 @@ def create_base_fields(prefix=""):
         SimpleField(name=f"{prefix}docType", type=SearchFieldDataType.String, filterable=True),
         SimpleField(name=f"{prefix}timestamp", type=SearchFieldDataType.DateTimeOffset, filterable=True, sortable=True),
         SimpleField(name=f"{prefix}fileName", type=SearchFieldDataType.String, filterable=True),
+        SimpleField(name=f"{prefix}segmentStartTime", type=SearchFieldDataType.Int64, filterable=True),
+        SimpleField(name=f"{prefix}segmentEndTime", type=SearchFieldDataType.Int64, filterable=True),
         SearchField(
             name=f"{prefix}contentVector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -57,7 +59,8 @@ def create_search_indexes(fields_config=None):
                         name=field_name,
                         type=SearchFieldDataType.String,
                         filterable=True,
-                        facetable=True
+                        facetable=True,
+                        nullable=True  # Make string fields nullable
                     )
                 )
             elif field_type == "array":
@@ -66,7 +69,8 @@ def create_search_indexes(fields_config=None):
                         name=field_name,
                         type=SearchFieldDataType.Collection(SearchFieldDataType.String),
                         filterable=True,
-                        facetable=True
+                        facetable=True,
+                        nullable=True  # Make array fields nullable
                     )
                 )
             elif field_type == "table":
@@ -80,10 +84,8 @@ def create_search_indexes(fields_config=None):
                         )
                     )
 
-    # Create chunk index with link to parent artifact - use chunk_fileName instead of parentArtifactId
-    chunk_fields = create_base_fields("chunk_") + [
-        SimpleField(name="chunkNumber", type=SearchFieldDataType.Int32, filterable=True, sortable=True)
-    ]
+    # Create chunk index with chunk-prefixed fields
+    chunk_fields = create_base_fields("chunk_")
 
     # Common vector and semantic configurations
     vector_search = VectorSearch(
@@ -110,7 +112,7 @@ def create_search_indexes(fields_config=None):
     artifact_semantic_config = SemanticConfiguration(
         name="default",
         prioritized_fields=SemanticPrioritizedFields(
-            content_fields=[SemanticField(field_name="fileName")],
+            content_fields=[SemanticField(field_name="content")],
             keywords_fields=[SemanticField(field_name="fileName")]
         )
     )

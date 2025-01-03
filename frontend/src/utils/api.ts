@@ -65,3 +65,49 @@ export const searchChunks = async (params: {
   });
   return response.json();
 };
+
+export const sendChatMessage = async (prompt: string, threadId: string) => {
+  const response = await fetch(`${BASE_URL}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt, threadId }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Chat failed: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const loadChatHistory = async (threadId: string) => {
+  const response = await fetch(`${BASE_URL}/api/chat/history/${threadId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load chat history: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const createChatThread = async () => {
+  const response = await fetch(`${BASE_URL}/api/chat/thread`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create chat thread: ${response.statusText}`);
+  }
+
+  return response.json();
+};

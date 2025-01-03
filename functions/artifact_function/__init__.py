@@ -41,7 +41,8 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
         custom_fields = [f["name"] for f in schema_json.get("fields", [])]
         all_fields = standard_fields + custom_fields
         
-        # Build search options with dynamic field selection
+        # Force limit to 5 results max
+        top_k = min(5, top_k)
         search_options = {
             "filter": f"docType eq 'artifact' {f'and {filter_expr}' if filter_expr else ''}",
             "top": top_k,
@@ -62,18 +63,24 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
             **search_options
         )
         
-        # Format results with dynamic fields
+        # Format results with dynamic fields and limit content size
         docs = []
+        max_content_size = 1000  # Limit content field size
+        
         for result in results:
             doc = {
                 field: result.get(field) 
                 for field in all_fields 
                 if field in result
             }
+            # Trim content if too large
+            if 'content' in doc and len(doc['content']) > max_content_size:
+                doc['content'] = doc['content'][:max_content_size] + '...'
+            
             doc["score"] = result.get("@search.score")
+            docs = docs[:5]  # Ensure max 5 docs
             docs.append(doc)
-        
-        # Send results to output queue
+
         output_message = {
             "Value": {
                 "results": docs,
@@ -81,6 +88,16 @@ def main(msg: func.QueueMessage, outputQueueItem: func.Out[str]) -> None:
             },
             "CorrelationId": correlation_id
         }
+        
+        # Check if output message is too large
+        message_size = len(json.dumps(output_message).encode('utf-8'))
+        if message_size > 60000:  # Leave buffer below 64KB limit
+            # Truncate results if needed
+            while message_size > 60000 and docs:
+                docs.pop()
+                output_message["Value"]["results"] = docs
+                message_size = len(json.dumps(output_message).encode('utf-8'))
+                
         outputQueueItem.set(json.dumps(output_message))
         
     except Exception as e:
