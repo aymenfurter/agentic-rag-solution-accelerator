@@ -1,5 +1,5 @@
 {
-  "name": "callcenter-review-agent6",
+  "name": "callcenter-review-agent",
   "description": "Template for analyzing call center conversations",
   "scenario": "conversation",
   "fields": [

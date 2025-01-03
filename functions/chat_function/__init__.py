@@ -8,119 +8,6 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import QueryType
 from azure.storage.blob import BlobServiceClient
 
-def search_artifact (payload):
-    # Extract search parameters
-    search_text = payload.get("searchText", "*")
-    filter_expr = payload.get("filter")
-    semantic_ranking = payload.get("semanticRanking", False)
-    top_k = min(payload.get("topK", 5), 50)
-    
-    # Get config to find index name
-    blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
-    container_client = blob_client.get_container_client("schemas")
-    config_blob = container_client.get_blob_client("user_config.json")
-    schema_json = json.loads(config_blob.download_blob().readall())
-    
-    # Initialize search client
-    search_client = SearchClient(
-        endpoint=os.environ["SEARCH_ENDPOINT"],
-        index_name="artifacts",  # Use static name
-        credential=AzureKeyCredential(os.environ["SEARCH_ADMIN_KEY"])
-    )
-    
-    # Build dynamic field selection from config
-    standard_fields = ["id", "content", "docType", "timestamp", "fileName"]
-    custom_fields = [f["name"] for f in schema_json.get("fields", [])]
-    all_fields = standard_fields + custom_fields
-    
-    # Force limit to 5 results max
-    top_k = min(5, top_k)
-    search_options = {
-        "filter": f"docType eq 'artifact' {f'and {filter_expr}' if filter_expr else ''}",
-        "top": top_k,
-        "select": ",".join(all_fields),
-        "include_total_count": True
-    }
-    
-    if semantic_ranking:
-        search_options.update({
-            "query_type": QueryType.SEMANTIC,
-            "query_language": "en-us",
-            "semantic_configuration_name": "artifact-semantic"
-        })
-        
-    # Perform search
-    results = search_client.search(
-        search_text=search_text,
-        **search_options
-    )
-
-    return results
-
-def search_chunk (payload):
-    # Extract search parameters
-    search_text = payload.get("searchText", "*")
-    filter_expr = payload.get("filter")
-    semantic_ranking = payload.get("semanticRanking", False)
-    question_rewriting = payload.get("questionRewriting", False)
-    top_k = min(payload.get("topK", 5), 50)
-    
-    # Get config to find index name
-    blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
-    container_client = blob_client.get_container_client("schemas")
-    config_blob = container_client.get_blob_client("user_config.json")
-    schema_json = json.loads(config_blob.download_blob().readall())
-    
-    # Initialize search client with static index name
-    search_client = SearchClient(
-        endpoint=os.environ["SEARCH_ENDPOINT"],
-        index_name="chunks",
-        credential=AzureKeyCredential(os.environ["SEARCH_ADMIN_KEY"])
-    )
-    
-    # Build search options with chunk-specific fields
-    search_options = {
-        "filter": f"chunk_docType eq 'chunk' {f'and {filter_expr}' if filter_expr else ''}",
-        "top": top_k,
-        "select": "chunk_id,chunk_content,chunk_timestamp,chunk_fileName",
-        "include_total_count": True
-    }
-    
-    if semantic_ranking:
-        search_options.update({
-            "query_type": QueryType.SEMANTIC,
-            "query_language": "en-us",
-            "semantic_configuration_name": "chunk-semantic"
-        })
-
-    if question_rewriting:
-        # TODO: Implement question rewriting using Azure AI Services
-        pass
-        
-    # Perform search
-    results = search_client.search(
-        search_text=search_text,
-        **search_options
-    )
-
-    return results
-# Update the process_tool_call function to use the new imports
-def process_tool_call(tool_call):
-    """Process a tool call and return its output"""
-    arguments = json.loads(tool_call['azure_function'].get('arguments', '{}'))
-    input_queue_name = arguments['outputqueueuri'].split('/')[-1]
-    if input_queue_name == "artifactchunk-input":
-        result, _ = search_artifact(tool_call['azure_function'].get('arguments', '{}'))
-        return {
-            "tool_call_id": tool_call['id'],
-            "output": result 
-        }
-    else:
-        return {
-            "tool_call_id": tool_call['id'],
-            "output": search_chunk(tool_call['azure_function'].get('arguments', '{}')) 
-        }
-
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Starting chat request processing')
     
@@ -184,33 +71,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             
             while run.status in ["queued", "in_progress", "requires_action"]:
                 if time.time() - start_time > timeout:
-                    raise Exception("Run timed out after 30 seconds")
+                    # submit timeout message to run
+                    project_client.agents.cancel_run(thread_id=thread.id, run_id=run.id)
+                    raise Exception("Run timed out after 60 seconds")
                 
                 logging.info(f"Run status: {run.status}")
                 
-                if run.status == "requires_action":
-                    # Handle required actions
-                    if run.required_action.type == "submit_tool_outputs":
-                        tool_outputs = []
-                        for tool_call in run.required_action.submit_tool_outputs.tool_calls:
-                            try:
-                                output = process_tool_call(tool_call)
-                                if output:
-                                    tool_outputs.append(output)
-                            except Exception as e:
-                                logging.error(f"Error processing tool call: {str(e)}")
-                                continue
-                        
-                        if tool_outputs:
-                            logging.info(f"Submitting tool outputs: {tool_outputs}")
-                            run = project_client.agents.submit_tool_outputs_to_run(
-                                thread_id=thread_id,
-                                run_id=run.id,
-                                tool_outputs=tool_outputs
-                            )
-                            continue
-                
-                time.sleep(2)
+                time.sleep(1)
                 run = project_client.agents.get_run(
                     thread_id=thread_id,
                     run_id=run.id
