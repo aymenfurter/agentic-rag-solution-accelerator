@@ -1,0 +1,51 @@
+{
+    "name": "medical-case-extractor",
+    "description": "Template for extracting key points from medical case notes",
+    "scenario": "document",
+    "fields": [
+      {
+        "name": "patientName",
+        "type": "string",
+        "description": "Name of the patient (if available)",
+        "method": "generate"
+      },
+      {
+        "name": "conditions",
+        "type": "array",
+        "description": "Diagnosed conditions or complaints",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "medications",
+        "type": "array",
+        "description": "Prescribed medications",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "recommendedTreatments",
+        "type": "array",
+        "description": "Suggested treatments or therapies",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Overall summary of the patient's case",
+        "method": "generate"
+      }
+    ],
+    "instructions": "You are a helpful assistant for summarizing medical case notes. Extract conditions, treatments, medications, and provide a concise overview of the patient's situation."
+  }
+  

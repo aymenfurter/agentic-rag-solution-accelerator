@@ -1,0 +1,51 @@
+{
+    "name": "insurance-claim-analyzer",
+    "description": "Template for analyzing insurance claim documents and extracting key details",
+    "scenario": "document",
+    "fields": [
+      {
+        "name": "policyHolder",
+        "type": "string",
+        "description": "Name of the policy holder",
+        "method": "generate"
+      },
+      {
+        "name": "policyNumber",
+        "type": "string",
+        "description": "Unique policy number",
+        "method": "generate"
+      },
+      {
+        "name": "claimType",
+        "type": "string",
+        "description": "Type of insurance claim (e.g., health, auto, property)",
+        "method": "generate"
+      },
+      {
+        "name": "claimedAmount",
+        "type": "string",
+        "description": "Amount claimed by the policy holder",
+        "method": "generate"
+      },
+      {
+        "name": "incidentDescription",
+        "type": "string",
+        "description": "Description of the incident or reason for claim",
+        "method": "generate"
+      },
+      {
+        "name": "eligibilityStatus",
+        "type": "string",
+        "description": "Determines if the claim is eligible, pending, or rejected",
+        "method": "generate"
+      },
+      {
+        "name": "recommendation",
+        "type": "string",
+        "description": "Recommended next steps (e.g., further investigation, approve, reject)",
+        "method": "generate"
+      }
+    ],
+    "instructions": "You are a helpful assistant for analyzing insurance claim documents. Summarize key details, assess eligibility, and provide recommendations."
+  }
+  

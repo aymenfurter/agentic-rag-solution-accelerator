@@ -10,7 +10,7 @@ interface SetupAgentRequest {
 }
 
 export const setupAgent = async (request: SetupAgentRequest) => {
-  const response = await fetch(`${BASE_URL}/api/setupAgent`, {
+  const response = await fetch(`${BASE_URL}/api/agent/setup`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -33,35 +33,6 @@ export const uploadFile = async (file: File, metadata: Record<string, any>) => {
   const response = await fetch(`${BASE_URL}/api/uploadFile`, {
     method: 'POST',
     body: formData
-  });
-  return response.json();
-};
-
-export const searchArtifacts = async (params: {
-  searchText: string;
-  filter?: string;
-  semanticRanking?: boolean;
-  topK?: number;
-}) => {
-  const response = await fetch(`${BASE_URL}/api/artifact`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ payload: params })
-  });
-  return response.json();
-};
-
-export const searchChunks = async (params: {
-  searchText: string;
-  filter?: string;
-  semanticRanking?: boolean;
-  questionRewriting?: boolean;
-  topK?: number;
-}) => {
-  const response = await fetch(`${BASE_URL}/api/artifactchunk`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ payload: params })
   });
   return response.json();
 };
@@ -107,6 +78,18 @@ export const createChatThread = async () => {
 
   if (!response.ok) {
     throw new Error(`Failed to create chat thread: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const checkSetupStatus = async () => {
+  const response = await fetch(`${BASE_URL}/api/agent/setup/status`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to check setup status: ${response.statusText}`);
   }
 
   return response.json();

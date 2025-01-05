@@ -1,0 +1,39 @@
+{
+    "name": "product-review-summarizer",
+    "description": "Template for summarizing and analyzing product reviews",
+    "scenario": "document",
+    "fields": [
+      {
+        "name": "productName",
+        "type": "string",
+        "description": "Name of the product being reviewed",
+        "method": "generate"
+      },
+      {
+        "name": "sentiment",
+        "type": "string",
+        "description": "Overall sentiment of the review (e.g. positive, negative, mixed)",
+        "method": "generate"
+      },
+      {
+        "name": "rating",
+        "type": "number",
+        "description": "Numerical rating provided by the reviewer",
+        "method": "generate"
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Short summary of the review content",
+        "method": "generate"
+      },
+      {
+        "name": "recommendedChanges",
+        "type": "string",
+        "description": "Reviewer’s suggestions for improvements",
+        "method": "generate"
+      }
+    ],
+    "instructions": "You are a helpful assistant for analyzing product reviews, providing sentiment, rating, and summarizing feedback for improvement."
+  }
+  

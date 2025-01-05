@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Stack, IStackTokens } from '@fluentui/react';
+import { Stack } from '@fluentui/react';
 import { Chat } from './components/Chat';
-import { FileUpload } from './components/FileUpload';
 import { SetupWizard } from './components/SetupWizard';
 import { Header } from './components/Header';
-import { Footer } from './components/Footer';
+import { SettingsMenu } from './components/SettingsMenu';
 import { isAuthenticated } from './utils/auth';
-
-const stackTokens: IStackTokens = { childrenGap: 20 };
 
 const App: React.FC = () => {
   const [isConfigured, setIsConfigured] = useState(false);
@@ -16,6 +13,11 @@ const App: React.FC = () => {
     // Check if app is already configured
     // This could check local storage or make an API call
   }, []);
+
+  const handleReset = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
 
   if (!isAuthenticated()) {
     return <div>Please login to continue</div>;
@@ -33,12 +35,11 @@ const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      <Header />
-      <Stack tokens={stackTokens} className="main-content">
-        <FileUpload />
-        <Chat />
+      <Stack horizontal className="header" verticalAlign="center">
+        <div className="header-left"></div>
+        <SettingsMenu onReset={handleReset} />
       </Stack>
-      <Footer />
+      <Chat />
     </div>
   );
 };

@@ -1,0 +1,43 @@
+{
+    "name": "email-summarizer",
+    "description": "Template for summarizing email threads and extracting key information",
+    "scenario": "document",
+    "fields": [
+      {
+        "name": "subject",
+        "type": "string",
+        "description": "Subject line of the email",
+        "method": "generate"
+      },
+      {
+        "name": "sender",
+        "type": "string",
+        "description": "Email sender",
+        "method": "generate"
+      },
+      {
+        "name": "recipient",
+        "type": "string",
+        "description": "Email recipient",
+        "method": "generate"
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Short summary of the email content",
+        "method": "generate"
+      },
+      {
+        "name": "actionItems",
+        "type": "array",
+        "description": "Action items that need to be addressed",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      }
+    ],
+    "instructions": "You are a helpful assistant for extracting key information from email threads and generating concise summaries."
+  }
+  

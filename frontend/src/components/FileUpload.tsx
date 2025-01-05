@@ -36,7 +36,6 @@ export const FileUpload: React.FC = () => {
 
   return (
     <Stack tokens={{ childrenGap: 10 }}>
-      <h2>File Upload</h2>
       <PrimaryButton text="Upload File" onClick={() => {}} />
       <div {...getRootProps()} className="file-upload">
         <input {...getInputProps()} />

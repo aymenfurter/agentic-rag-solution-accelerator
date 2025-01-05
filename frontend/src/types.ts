@@ -25,9 +25,32 @@ export interface SearchResult {
 }
 
 export interface ChatMessage {
-    role: 'user' | 'assistant';
+    role: string;
     content: string;
     timestamp: string;
+    steps?: RunStep[];  // Replace toolCalls with steps
     audioUrl?: string;
     jumpTime?: number;
+}
+
+export interface ToolCall {
+    name: string;
+    parameters: {
+        searchText?: string;
+        filter?: string;
+        outputqueueuri?: string;
+    };
+    status: 'pending' | 'completed';
+}
+
+export interface RunStatus {
+    status: 'queued' | 'in_progress' | 'requires_action' | 'completed' | 'failed';
+    toolCalls?: ToolCall[];
+}
+
+export interface RunStep {
+    type: string;
+    status: string;
+    detail_type?: string;
+    tool_calls?: ToolCall[];
 }

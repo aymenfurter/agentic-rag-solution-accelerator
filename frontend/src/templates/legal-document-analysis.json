@@ -1,0 +1,47 @@
+{
+    "name": "legal-document-analysis",
+    "description": "Template for identifying key information from legal documents such as contracts",
+    "scenario": "document",
+    "fields": [
+      {
+        "name": "partiesInvolved",
+        "type": "array",
+        "description": "List of parties or entities mentioned in the document",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "dateOfContract",
+        "type": "string",
+        "description": "Effective date of the legal document",
+        "method": "generate"
+      },
+      {
+        "name": "keyClauses",
+        "type": "array",
+        "description": "Important clauses or terms in the document",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Short summary of the contract or legal text",
+        "method": "generate"
+      },
+      {
+        "name": "nextSteps",
+        "type": "string",
+        "description": "Recommended next steps or actions based on the document analysis",
+        "method": "generate"
+      }
+    ],
+    "instructions": "You are a helpful assistant for analyzing legal documents. Identify the key parties, clauses, and suggest next steps if applicable."
+  }
+  

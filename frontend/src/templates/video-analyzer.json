@@ -1,0 +1,83 @@
+{
+    "name": "azure-youtube-video-analyzer",
+    "description": "Template for analyzing YouTube videos about Azure content and extracting key insights",
+    "scenario": "conversation",
+    "fields": [
+      {
+        "name": "videoTitle",
+        "type": "string",
+        "description": "Title of the YouTube video",
+        "method": "generate"
+      },
+      {
+        "name": "channelName",
+        "type": "string",
+        "description": "Name of the YouTube channel",
+        "method": "generate"
+      },
+      {
+        "name": "speakers",
+        "type": "array",
+        "description": "List of speakers or presenters in the video",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "azureServices",
+        "type": "array",
+        "description": "Azure services discussed (e.g., Azure App Service, Azure Functions, etc.)",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "mentionedTechnologies",
+        "type": "array",
+        "description": "Any non-Azure technologies or tools mentioned (e.g., GitHub, Docker)",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "majorTopics",
+        "type": "array",
+        "description": "Main topics or themes discussed in the video",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "peopleMentioned",
+        "type": "array",
+        "description": "People mentioned in the video who are not speakers (e.g., references to CEOs, MVPs)",
+        "method": "extract",
+        "items": {
+          "type": "string",
+          "method": "generate"
+        }
+      },
+      {
+        "name": "targetAudience",
+        "type": "string",
+        "description": "Intended audience for the content (e.g., cloud architects, developers)",
+        "method": "generate"
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Overall summary of the video content, focusing on Azure-related topics",
+        "method": "generate"
+      }
+    ],
+    "instructions": "You are a helpful assistant for analyzing YouTube videos about Azure. Extract references to Azure services, major topics, speakers, notable mentions, and important insights from the video transcript, providing a comprehensive overview for users."
+  }
+  

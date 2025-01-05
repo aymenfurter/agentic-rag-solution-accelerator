@@ -7,9 +7,10 @@
       "direction": "in",
       "name": "req",
       "methods": [
-        "post"
+        "post",
+        "get"
       ],
-      "route": "setupAgent"
+      "route": "agent/setup/{action?}"
     },
     {
       "type": "http",

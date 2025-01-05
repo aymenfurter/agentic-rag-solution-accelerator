@@ -67,7 +67,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             
             # Monitor run with timeout
             start_time = time.time()
-            timeout = 30  # 30 seconds timeout
+            timeout = 60  # 30 seconds timeout
+
+            action_run = None
             
             while run.status in ["queued", "in_progress", "requires_action"]:
                 if time.time() - start_time > timeout:
@@ -75,8 +77,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     project_client.agents.cancel_run(thread_id=thread.id, run_id=run.id)
                     raise Exception("Run timed out after 60 seconds")
                 
-                logging.info(f"Run status: {run.status}")
+                if run.status == "requires_action":
+                    action_run = run
                 
+                # Collect tool calls if they exist
+                logging.info(f"Run status: {run.status}")
                 time.sleep(1)
                 run = project_client.agents.get_run(
                     thread_id=thread_id,
@@ -99,6 +104,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             logging.info('Retrieving messages')
             messages = project_client.agents.list_messages(thread_id=thread_id)
             
+            # Get run steps
+            logging.info('Retrieving run steps')
+            steps = project_client.agents.list_run_steps(thread_id=thread_id, run_id=run.id)
+            
             # Find the last assistant message
             assistant_messages = [
                 msg for msg in messages.data
@@ -112,11 +121,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 
             # last message is first message in the list
             last_msg = assistant_messages[0]
-            
+            steps_data = [json.loads(json.dumps(vars(step), default=str)) for step in steps.data]
+
             response = {
                 "role": "assistant",
                 "content": last_msg.content[0].text.value if last_msg.content else "",
-                "timestamp": last_msg.created_at.isoformat()
+                "timestamp": last_msg.created_at.isoformat(),
+                "steps": steps_data
             }
             
             logging.info('Successfully processed chat request')
