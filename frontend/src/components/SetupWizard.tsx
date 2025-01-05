@@ -99,7 +99,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
       const response = await setupAgent({
         name: selectedTemplate.name,
         fields: selectedTemplate.fields,
-        scenario: selectedTemplate.scenario,
+        scenario: selectedTemplate.scenario || 'document',
         instructions: selectedTemplate.instructions
       });
 

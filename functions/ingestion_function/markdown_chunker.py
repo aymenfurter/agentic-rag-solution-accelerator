@@ -1,11 +1,6 @@
-# /shared/chunking/markdown_chunker.py
 import re
 from typing import List, Dict, Any
 from datetime import datetime
-
-def format_datetime(dt):
-    """Format datetime in ISO 8601 format with Z suffix"""
-    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 class MarkdownChunker:
     """Markdown document chunker with header preservation"""
@@ -58,10 +53,9 @@ class MarkdownChunker:
             if header_match:
                 # If we have content, create a chunk before starting new section
                 if current_chunk:
-                    chunk_id = f"{metadata['artifactId']}_chunk_{chunk_number}"
+                    chunk_id = f"{metadata['id']}_chunk_{chunk_number}"
                     chunk_content = "\n".join(current_chunk)
                     chunk_data = self._create_chunk(chunk_id, chunk_content, metadata)
-                    chunk_data.update({"headers": current_headers.copy()})
                     chunks.append(chunk_data)
                     chunk_number += 1
                     current_chunk = []
@@ -78,10 +72,9 @@ class MarkdownChunker:
             
             # Check if current chunk is too large
             if len("\n".join(current_chunk)) >= self.chunk_size:
-                chunk_id = f"{metadata['artifactId']}_chunk_{chunk_number}"
+                chunk_id = f"{metadata['id']}_chunk_{chunk_number}"
                 chunk_content = "\n".join(current_chunk)
                 chunk_data = self._create_chunk(chunk_id, chunk_content, metadata)
-                chunk_data.update({"headers": current_headers.copy()})
                 chunks.append(chunk_data)
                 chunk_number += 1
                 # Keep overlap portion
@@ -90,10 +83,9 @@ class MarkdownChunker:
 
         # Add final chunk if any content remains
         if current_chunk:
-            chunk_id = f"{metadata['artifactId']}_chunk_{chunk_number}"
+            chunk_id = f"{metadata['id']}_chunk_{chunk_number}"
             chunk_content = "\n".join(current_chunk)
             chunk_data = self._create_chunk(chunk_id, chunk_content, metadata)
-            chunk_data.update({"headers": current_headers.copy()})
             chunks.append(chunk_data)
 
         return chunks
@@ -105,19 +97,10 @@ class MarkdownChunker:
         metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Create chunk document with common fields"""
-        # Ensure timestamp is properly formatted
-        chunk_metadata = {
-            k: format_datetime(v) if k == 'timestamp' else v 
-            for k, v in metadata.items()
-        }
-        
         return {
-            "id": chunk_id,
-            "content": content,
-            "docType": "chunk",
-            "artifactId": chunk_metadata.get("artifactId"),
-            "fileName": chunk_metadata.get("fileName"),
-            "timestamp": chunk_metadata.get("timestamp"),
-            **{k:v for k,v in chunk_metadata.items() 
-               if k not in ["artifactId", "fileName", "timestamp"]}
+            "chunk_id": chunk_id,
+            "chunk_content": content,
+            "chunk_docType": "chunk",
+            "chunk_fileName": metadata.get("fileName"),
+            "chunk_timestamp": metadata.get("timestamp")
         }

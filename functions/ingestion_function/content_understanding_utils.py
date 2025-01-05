@@ -22,6 +22,8 @@ def analyze_file(analyzer_id: str, content: bytes) -> dict:
         }
         
         logging.info(f"Making binary analyze request to {url}")
+        logging.info(f"Request headers: {headers}")
+        logging.info(f"Payload" + f"Size: {len(content)} bytes")
         response = requests.post(url, headers=headers, data=content)
         
         if response.status_code == 202:  # Accepted - async operation
@@ -38,6 +40,9 @@ def analyze_file(analyzer_id: str, content: bytes) -> dict:
                     operation_url,
                     headers={"Ocp-Apim-Subscription-Key": key}
                 )
+                logging.info(f"Response received, status: {result_response.status_code}")
+                logging.info(f"Status: {result_response.status_code}")
+                logging.info(f"Response content: {result_response.text}")
                 
                 if not result_response.ok:
                     logging.error(f"Error response: {result_response.text}")
@@ -51,6 +56,7 @@ def analyze_file(analyzer_id: str, content: bytes) -> dict:
                     return result.get('result', {})
                 elif status in ['failed', 'canceled']:
                     error_msg = result.get('error', {}).get('message', 'Unknown error')
+
                     raise Exception(f"Analysis failed: {error_msg}")
                 elif status in ['notstarted', 'running']:
                     time.sleep(retry_delay)

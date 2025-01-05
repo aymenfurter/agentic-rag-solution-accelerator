@@ -9,6 +9,12 @@ from .content_understanding_utils import analyze_file
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from datetime import datetime
+import base64
+
+def sanitize_document_id(id_str: str) -> str:
+    """Convert a string to a valid document key using URL-safe Base64 encoding"""
+    encoded = base64.urlsafe_b64encode(id_str.encode()).decode()
+    return encoded.rstrip('=')  # Remove trailing '=' padding
 
 def process_content_item(content_item: dict, metadata: dict, schema_json: dict) -> tuple[dict, list]:
     """Process a single content item and return artifact doc and chunks"""
@@ -71,9 +77,9 @@ def main(myblob: func.InputStream):
         # Get blob content
         content = myblob.read()
         blob_name = myblob.name.split("/")[-1]
-        file_id = blob_name.split("_")[0]
-        original_filename = "_".join(blob_name.split("_")[1:])
-        file_type = original_filename.split(".")[-1].lower()
+        
+        # Sanitize the document ID
+        safe_id = sanitize_document_id(blob_name)
         
         # Get user configuration
         blob_client = BlobServiceClient.from_connection_string(os.environ["STORAGE_CONNECTION_STRING"])
@@ -81,10 +87,10 @@ def main(myblob: func.InputStream):
         config_blob = container_client.get_blob_client("user_config.json")
         schema_json = json.loads(config_blob.download_blob().readall())
         
-        # Create base metadata with properly formatted timestamp
+        # Create base metadata with properly formatted timestamp and safe ID
         base_metadata = {
-            "id": file_id,
-            "fileName": original_filename,
+            "id": safe_id,
+            "fileName": blob_name,
             "timestamp": format_datetime(datetime.utcnow()),
             "docType": "artifact"
         }

@@ -66,6 +66,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [isJsonMode, setIsJsonMode] = useState(false);
   const [jsonContent, setJsonContent] = useState(JSON.stringify(template, null, 2));
 
+  const scenarioOptions = [
+    { key: 'document', text: 'Document' },
+    { key: 'conversation', text: 'Conversation' }
+  ];
+
   const handleJsonChange = (value: string | undefined) => {
     setJsonContent(value || '');
     try {
@@ -176,6 +181,20 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             onChange={(_, newValue) => 
               setEditedTemplate({...editedTemplate, description: newValue || ''})
             }
+          />
+
+          <Dropdown
+            label="Scenario"
+            selectedKey={editedTemplate.scenario || 'document'}
+            options={scenarioOptions}
+            onChange={(_, option) => {
+              if (option) {
+                setEditedTemplate({
+                  ...editedTemplate,
+                  scenario: option.key as string
+                });
+              }
+            }}
           />
 
           <Stack>

@@ -75,7 +75,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "fields": body["fields"],
                 "name": body.get("name", "customSchema"),
                 "instructions": body.get("instructions", "You are a helpful agent for processing documents."),
-                "template": body.get("template")
+                "template": body.get("template"),
+                "scenario": body.get("scenario", "document")  # Add this line
             }
             
             # Create search indexes first

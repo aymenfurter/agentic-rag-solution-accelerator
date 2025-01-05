@@ -34,6 +34,12 @@ export const uploadFile = async (file: File, metadata: Record<string, any>) => {
     method: 'POST',
     body: formData
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText || response.statusText}`);
+  }
+
   return response.json();
 };
 
@@ -93,4 +99,19 @@ export const checkSetupStatus = async () => {
   }
 
   return response.json();
+};
+
+export const getFile = async (filename: string): Promise<Blob> => {
+  const response = await fetch(`/api/getFile/${encodeURIComponent(filename)}`, {
+    method: 'GET',
+    headers: {
+      // Add any auth headers if needed
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.statusText}`);
+  }
+
+  return response.blob();
 };

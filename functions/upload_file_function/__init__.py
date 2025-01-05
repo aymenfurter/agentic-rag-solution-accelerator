@@ -21,7 +21,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # Generate unique ID and create filename
         file_id = str(uuid.uuid4())
         original_filename = file.filename
-        file_name = f"{file_id}_{original_filename}"
 
         # Get metadata if provided
         metadata = json.loads(req.form.get('metadata', '{}'))
@@ -43,7 +42,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Upload file to blob storage
         blob = container.upload_blob(
-            name=file_name,
+            name=original_filename,
             data=file_content,
             overwrite=True,
             metadata=metadata
@@ -53,7 +52,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             json.dumps({
                 "fileId": file_id,
                 "originalName": original_filename,
-                "blobName": file_name
+                "blobName": original_filename
             }),
             status_code=200,
             mimetype="application/json"

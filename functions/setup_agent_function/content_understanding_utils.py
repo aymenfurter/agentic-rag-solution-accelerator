@@ -43,26 +43,28 @@ def create_or_update_analyzer(schema_data: Dict[str, Any]) -> Dict[str, Any]:
             field_type = field["type"]
             description = field.get("description", "")
             
+            method = "extract" if schema_data.get("scenario") == "document" else "generate"
+            
             if field_name == "summary":
                 fields[field_name] = {
                     "type": "string",
-                    "method": "generate",
+                    "method": method,
                     "description": description
                 }
             elif field_type == "array":
                 fields[field_name] = {
                     "type": "array",
-                    "method": "generate",
+                    "method": method,
                     "description": description,
                     "items": {
-                        "type": "string",
-                        "method": "generate"
+                    "type": "string",
+                    "method": method
                     }
                 }
             else:
                 fields[field_name] = {
                     "type": field_type,
-                    "method": "generate",
+                    "method": method,
                     "description": description
                 }
 

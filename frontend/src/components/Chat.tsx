@@ -1,35 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stack, TextField, Text, List, Spinner, DefaultButton } from '@fluentui/react';
-import { ChatMessage, Step, Thread } from '../types';
+import { Stack, TextField, List, Spinner, DefaultButton } from '@fluentui/react';
+import { ChatMessage, Thread } from '../types';
 import { sendChatMessage, createChatThread } from '../utils/api';
-
-const parseMarkdown = (text: string): string => {
-  // Headers
-  text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-  text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-  text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-  
-  // Bold
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  
-  // Italic
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  
-  // Code blocks
-  text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  
-  // Inline code
-  text = text.replace(/`(.*?)`/g, '<code>$1</code>');
-  
-  // Lists
-  text = text.replace(/^\s*[-*]\s(.+)/gm, '<li>$1</li>');
-  text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-  
-  // Line breaks
-  text = text.replace(/\n/g, '<br>');
-  
-  return text;
-};
+import { parseMarkdown } from '../utils/markdownUtils';
+import { RunSteps } from './RunSteps';
 
 export const Chat: React.FC = () => {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -297,107 +271,6 @@ export const Chat: React.FC = () => {
   const handleThreadSelect = (thread: Thread) => {
     syncState(threads, thread.id);
     setInput('');
-  };
-
-  const RunSteps: React.FC<{ steps: Step[] }> = ({ steps }) => {
-    const [expanded, setExpanded] = useState(false);
-    const [showDetails, setShowDetails] = useState<Record<string, boolean>>({});
-
-    const toggleDetails = (stepId: string) => {
-      setShowDetails(prev => ({
-        ...prev,
-        [stepId]: !prev[stepId]
-      }));
-    };
-
-    return (
-      <div>
-      {steps.length >= 2 && (
-      <div className="run-steps-container">
-          <div className="run-steps-header" onClick={() => setExpanded(!expanded)}>
-            <div className="run-steps-summary">
-              <Text variant="mediumPlus">🔄 Agent Steps ({steps.length})</Text>
-              <Text variant="small">
-          Click to {expanded ? 'collapse' : 'expand'} details
-              </Text>
-            </div>
-            <span className="expand-icon">{expanded ? '▼' : '▶'}</span>
-          </div>
-        
-        {expanded && (
-          <div className="run-steps-details">
-            {steps.map((step, i) => {
-              const stepId = step._data.id;
-              const stepData = extractStepData(step._data.step_details);
-              const showDetailsForStep = showDetails[stepId];
-
-              return (
-                <div key={i} className="step-item">
-                  <div className="step-header">
-                    <div className="step-info">
-                      <Text variant="medium">
-                        <b>Step {i + 1}:</b> {step._data.step_details.includes('tool_calls') ? 'Tool Call' : 'Message Creation'}
-                      </Text>
-                      {stepData && (stepData.searchQuery || stepData.filter || (stepData.fileNames && stepData.fileNames.length > 0)) && (
-                        <div className="step-extracted-fields">
-                          {stepData.searchQuery && (
-                            <div className="step-field">
-                              <span className="field-label">Search:</span>
-                              <span className="field-value">{stepData.searchQuery}</span>
-                            </div>
-                          )}
-                          {stepData.filter && (
-                            <div className="step-field">
-                              <span className="field-label">Filter:</span>
-                              <span className="field-value">{stepData.filter}</span>
-                            </div>
-                          )}
-                          {stepData.fileNames && stepData.fileNames.length > 0 && (
-                            <div className="step-field">
-                              <span className="field-label">Files:</span>
-                              <span className="field-value">
-                                {stepData.fileNames.map((fileName, index) => (
-                                  <React.Fragment key={fileName}>
-                                    {index > 0 && ', '}
-                                    <a href="#" onClick={(e) => e.preventDefault()}>
-                                      {fileName}
-                                    </a>
-                                  </React.Fragment>
-                                ))}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="step-actions">
-                      <button 
-                        className="small-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleDetails(stepId);
-                        }}
-                      >
-                        {showDetailsForStep ? 'Hide JSON' : 'Show JSON'}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {showDetailsForStep && (
-                    <pre className="step-raw-json">
-                      {JSON.stringify(step._data.step_details, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      )}
-      </div>
-    );
   };
 
   const renderMessage = (msg: ChatMessage, index: number) => {
