@@ -5,7 +5,7 @@
   <h1>Agentic RAG on Azure (Early Development)</h1>
   
   <p align="center">
-    <strong>True emergent intelligence through self-organizing AI agent swarms</strong>
+    <strong>Autonomously Organizing and Retrieving Unstructured Content</strong>
   </p>
 
   <p align="center">
