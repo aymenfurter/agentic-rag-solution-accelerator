@@ -1,10 +1,31 @@
-# Agentic RAG on Azure (Early Development)
+<div align="center">
+  
+  <img src="chat-screen.png" width="400"/>
+ 
+  <h1>Agentic RAG on Azure (Early Development)</h1>
+  
+  <p align="center">
+    <strong>True emergent intelligence through self-organizing AI agent swarms</strong>
+  </p>
+
+  <p align="center">
+    <a href="#1-why-agentic-a-quick-overview">Why Agentic?</a> •
+    <a href="#2-azure-ai-content-understanding-and-azure-ai-agent-service-at-a-glance">Content Understanding and Agent Service at a Glance</a> •
+    <a href="#5-defining-an-agent-in-azure-ai-agent-service">Defining an Agent</a> •
+    <a href="#7-current-status-and-whats-next">What's next</a>
+  </p>
+
+  <p align="center">
+    <img alt="GitHub stars" src="https://img.shields.io/github/stars/aymenfurter/agentic-rag-solution-accelerator?style=for-the-badge">
+    <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge">
+    <img alt="Python" src="https://img.shields.io/badge/python-%3E%3D3.9-blue?style=for-the-badge">
+  </p>
+</div>
 
 We’re living in a time when ingesting unstructured content—audio, documents, images, or even videos—no longer has to mean wrestling with half a dozen separate frameworks or writing a labyrinth of custom LLM prompts. **Azure AI Content Understanding** and **Azure AI Agent Service**, both fresh from Microsoft Ignite 2024, simplify this entire process significantly. 
 
 I’ve been working on a **“Agentic RAG Solution Accelerator”** to illustrate how you can combine these services (combined with **Azure Functions** and **Azure AI Search**) to build flexible, robust retrieval experiences. This accelerator is **still in development**—it’s fully end-to-end, but I plan to keep iterating on indexing performance, chunking, query rewriting, vector search. Nevertheless, it already stands up a working pipeline with minimal code, letting the AI decide how best to query your data.
 
-![Alt Text](chat.png)
 
 ---
 
