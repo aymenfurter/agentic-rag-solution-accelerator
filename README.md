@@ -4,6 +4,8 @@ We’re living in a time when ingesting unstructured content—audio, documents,
 
 I’ve been working on a **“Agentic RAG Solution Accelerator”** to illustrate how you can combine these services (combined with **Azure Functions** and **Azure AI Search**) to build flexible, robust retrieval experiences. This accelerator is **still in development**—it’s fully end-to-end, but I plan to keep iterating on indexing performance, chunking, query rewriting, vector search. Nevertheless, it already stands up a working pipeline with minimal code, letting the AI decide how best to query your data.
 
+![Alt Text](chat.png)
+
 ---
 
 ## 1. Why Agentic? A Quick Overview
@@ -296,6 +298,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 ---
 
 ## 7. Current Status and What’s Next
+
+![Alt Text](select.png)
 
 Right now, this **Agentic RAG Solution Accelerator** already demonstrates:
 
