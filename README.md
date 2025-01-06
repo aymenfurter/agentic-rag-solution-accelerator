@@ -2,7 +2,7 @@
 
 We’re living in a time when ingesting unstructured content—audio, documents, images, or even videos—no longer has to mean wrestling with half a dozen separate frameworks or writing a labyrinth of custom LLM prompts. **Azure AI Content Understanding** and **Azure AI Agent Service**, both fresh from Microsoft Ignite 2024, simplify this entire process significantly. 
 
-I’ve been working on a **“Agentic RAG Solution Accelerator”** to illustrate how you can combine these services (with **Azure Functions** and **Azure AI Search** in tow) to build flexible, robust retrieval experiences. This accelerator is **still in development**—it’s fully end-to-end, but I plan to keep iterating on indexing performance, chunking, query rewriting, vector search. Nevertheless, it already stands up a working pipeline with minimal code, letting the AI decide how best to query your data.
+I’ve been working on a **“Agentic RAG Solution Accelerator”** to illustrate how you can combine these services (combined with **Azure Functions** and **Azure AI Search**) to build flexible, robust retrieval experiences. This accelerator is **still in development**—it’s fully end-to-end, but I plan to keep iterating on indexing performance, chunking, query rewriting, vector search. Nevertheless, it already stands up a working pipeline with minimal code, letting the AI decide how best to query your data.
 
 ---
 
