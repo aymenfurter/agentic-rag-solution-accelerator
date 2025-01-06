@@ -1,4 +1,4 @@
-# Agentic RAG on Azure
+# Agentic RAG on Azure (Early Development)
 
 We’re living in a time when ingesting unstructured content—audio, documents, images, or even videos—no longer has to mean wrestling with half a dozen separate frameworks or writing a labyrinth of custom LLM prompts. **Azure AI Content Understanding** and **Azure AI Agent Service**, both fresh from Microsoft Ignite 2024, simplify this entire process significantly. 
 
@@ -20,10 +20,9 @@ If you’ve ever tried to unify call center audio or PDF-based invoice data into
   Think of this as your “one-stop analyzer” for diverse data (audio, PDFs, images, videos). You specify the fields you want—maybe “sentiment,” “summary,” or “vendor name”—and Content Understanding delivers them in structured form. For PDFs, you typically get “extract-only,” whereas for audio, you might do more advanced generative tasks.  
 
 - **Azure AI Agent Service**  
-  Built on top of OpenAI’s assistant model, but with extra superpowers: it can “call” Azure Functions directly. So if a user query suggests searching for negative calls, the agent can pass `filter = "sentiment eq 'negative'"` to your function, then merge the results. No more trying to coerce the LLM with a massive system prompt. Just define your tool, and the service handles the rest.
+  Built on top of OpenAI’s assistant model, but with extra superpowers: it can “call” Azure Functions directly. So if a user query suggests searching for negative calls, the agent can pass `filter = "sentiment eq 'negative'"` to your function, then merge the results. No more trying to coerce the LLM with a massive system prompt. Just define your tool, and the service handles the rest. This reduces the overhead in building retrieval-augmented solutions, especially when you don’t want to craft a your own prompts or manually orchestrate function calls.
 
-This synergy drastically reduces the overhead in building retrieval-augmented solutions, especially when you don’t want to craft a million prompts or manually orchestrate function calls.
-
+Azure AI Agent Service comes in two SKUs: Basic and Standard. With Basic, the dependent resources of the AI Foundry service are managed by Microsoft, while with Standard, you need to create and manage those resources yourself. Note that Azure Function integration for AI Agents is only available with the Standard SKU. 
 ---
 
 ## 3. A Sample Schema for Invoices
